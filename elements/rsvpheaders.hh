@@ -50,14 +50,28 @@ struct RSVPObject
     uint8_t     c_type;     // 3
 };
 
+#define RSVP_CLASS_SESSION          1
+#define RSVP_CLASS_RSVPHOP          3
+#define RSVP_CLASS_INTEGRITY        4
+#define RSVP_CLASS_TIME_VALUES      5
+#define RSVP_CLASS_ERROR_SPEC       6
+#define RSVP_CLASS_SCOPE            7
+#define RSVP_CLASS_STYLE            8
+#define RSVP_CLASS_FLOWSPEC         9
+#define RSVP_CLASS_FILTER_SPEC      10
+#define RSVP_CLASS_SENDER_TEMPLATE  11
+#define RSVP_CLASS_SENDER_TSPEC     12
+#define RSVP_CLASS_POLICY_DATA      14
+#define RSVP_CLASS_RESV_CONFIRM     15
+
 /*------------+-------------+-------------+-------------+
 |             IPv4 DestAddress (4 bytes)                |
 +-------------+-------------+-------------+-------------+
 | Protocol Id |    Flags    |          DstPort          |
 +-------------+-------------+-------------+------------*/
-struct RSVPSession
+struct RSVPSession : public RSVPObject
 {
-    in_addr     dest_addr;  // 0 - 3
+    uint32_t    dest_addr;  // 0 - 3
     uint8_t     protocol;   // 4
     uint8_t     flags;      // 5
     uint16_t    dest_port;  // 6 - 7
@@ -68,21 +82,21 @@ struct RSVPSession
 +-------------+-------------+-------------+-------------+
 |                 Logical Interface Handle              |
 +-------------+-------------+-------------+------------*/
-struct RSVPHop
+struct RSVPHop : public RSVPObject
 {
-    in_addr     address;    // 0 - 3
+    uint32_t    address;    // 0 - 3
     uint32_t    lih;        // 4 - 7
 };
 
 /**/
-struct RSVPIntegrity
+struct RSVPIntegrity : public RSVPObject
 {
 };
 
 /*------------+-------------+-------------+-------------+
 |                   Refresh Period R                    |
 +-------------+-------------+-------------+------------*/
-struct RSVPTimeValues
+struct RSVPTimeValues : public RSVPObject
 {
     uint32_t    refresh;    // 0 - 3
 };
@@ -92,9 +106,9 @@ struct RSVPTimeValues
 +-------------+-------------+-------------+-------------+
 |    Flags    |  Error Code |        Error Value        |
 +-------------+-------------+-------------+------------*/
-struct RSVPErrorSpec
+struct RSVPErrorSpec : public RSVPObject
 {
-    in_addr     address;    // 0 - 3
+    uint32_t    address;    // 0 - 3
     uint8_t     flags;      // 4
     uint8_t     err_code;   // 5
     uint16_t    err_value;  // 6 - 7
@@ -110,7 +124,7 @@ struct RSVPErrorSpec
 +-------------+-------------+-------------+-------------+
 |                IPv4 Src Address (4 bytes)             |
 +-------------+-------------+-------------+------------*/
-struct RSVPScopeAddress
+struct RSVPScopeAddress : public RSVPObject
 {
     // Variable number of addresses...
 };
@@ -118,14 +132,14 @@ struct RSVPScopeAddress
 /*------------+-------------+-------------+-------------+
 |   Flags     |              Option Vector              |
 +-------------+-------------+-------------+------------*/
-struct RSVPStyle
+struct RSVPStyle : public RSVPObject
 {
     uint8_t     flags;      // 0
     uint32_t    options:24; // 1 - 3
 };
 
 /* RFC 2210 */
-struct RSVPFlowspec
+struct RSVPFlowspec : public RSVPObject
 {
 };
 
@@ -134,9 +148,9 @@ struct RSVPFlowspec
 +-------------+-------------+-------------+-------------+
 |    //////   |    //////   |          SrcPort          |
 +-------------+-------------+-------------+------------*/
-struct RSVPFilterSpec
+struct RSVPFilterSpec : public RSVPObject
 {
-    in_addr     src_addr;   // 0 - 3
+    uint32_t    src_addr;   // 0 - 3
     uint16_t    _; // (unused) 4 - 5
     uint16_t    src_port;   // 6 - 7
 };
@@ -146,29 +160,29 @@ struct RSVPFilterSpec
 +-------------+-------------+-------------+-------------+
 |    //////   |    //////   |          SrcPort          |
 +-------------+-------------+-------------+------------*/
-struct RSVPSenderTemplate
+struct RSVPSenderTemplate : public RSVPObject
 {
-    in_addr     src_addr;   // 0 - 3
+    uint32_t    src_addr;   // 0 - 3
     uint16_t    _; // (unused) 4 - 5
     uint16_t    src_port;   // 6 - 7
 };
 
 /**/
-struct RSVPSenderTspec
+struct RSVPSenderTspec : public RSVPObject
 {
 };
 
 /**/
-struct RSVPPolicyData
+struct RSVPPolicyData : public RSVPObject
 {
 };
 
 /*------------+-------------+-------------+-------------+
 |            IPv4 Receiver Address (4 bytes)            |
 +-------------+-------------+-------------+------------*/
-struct RSVPResvConfirm
+struct RSVPResvConfirm : public RSVPObject
 {
-    in_addr     rec_addr;   // 0 - 3
+    uint32_t    rec_addr;   // 0 - 3
 };
 
 CLICK_ENDDECLS

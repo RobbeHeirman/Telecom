@@ -20,8 +20,11 @@ public:
 
     Packet* pull(int);
 
+    static int send(const String& s, Element* e, void* vparam, ErrorHandler* errh);
+    void add_handlers();
+
 private:
-    int m_count;
+    bool m_send;
 };
 
 CLICK_ENDDECLS
