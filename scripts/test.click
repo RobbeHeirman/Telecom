@@ -1,5 +1,5 @@
 
-source::RSVPSource;
+source::RSVPSource();
 
 source
 	-> Unqueue

@@ -26,19 +26,21 @@ struct RSVPHeader
     uint8_t     msg_type;   // 1
     uint16_t    checksum;   // 2 - 3
     uint8_t     send_ttl;   // 4
-    uint8_t     reserved;   // 5
+    uint8_t     _;          // 5
     uint16_t    length;     // 6 - 7
 };
 
-#define RSVP_VERSION        1
+#define RSVP_VERSION        0x1
 
-#define RSVP_TYPE_PATH      1
-#define RSVP_TYPE_RESV      2
-#define RSVP_TYPE_PATHERR   3
-#define RSVP_TYPE_RESVERR   4
-#define RSVP_TYPE_PATHTEAR  5
-#define RSVP_TYPE_RESVTEAR  6
-#define RSVP_TYPE_RESVCONF  7
+enum RSVPType : uint8_t {
+    PATH        = 0x01,
+    RESV        = 0x02,
+    PATHERR     = 0x03,
+    RESVERR     = 0x04,
+    PATHTEAR    = 0x05,
+    RESVTEAR    = 0x06,
+    RESVCONF    = 0x07
+};
 
 /*------------+-------------+-------------+-------------+
 |       Length (bytes)      |  Class-Num  |   C-Type    |
@@ -50,19 +52,21 @@ struct RSVPObject
     uint8_t     c_type;     // 3
 };
 
-#define RSVP_CLASS_SESSION          1
-#define RSVP_CLASS_RSVPHOP          3
-#define RSVP_CLASS_INTEGRITY        4
-#define RSVP_CLASS_TIME_VALUES      5
-#define RSVP_CLASS_ERROR_SPEC       6
-#define RSVP_CLASS_SCOPE            7
-#define RSVP_CLASS_STYLE            8
-#define RSVP_CLASS_FLOWSPEC         9
-#define RSVP_CLASS_FILTER_SPEC      10
-#define RSVP_CLASS_SENDER_TEMPLATE  11
-#define RSVP_CLASS_SENDER_TSPEC     12
-#define RSVP_CLASS_POLICY_DATA      14
-#define RSVP_CLASS_RESV_CONFIRM     15
+enum RSVPClass : uint8_t {
+    SESSION         = 0x01,
+    HOP             = 0x03,
+    INTEGRITY       = 0x04,
+    TIME_VALUES     = 0x05,
+    ERROR_SPEC      = 0x06,
+    SCOPE           = 0x07,
+    STYLE           = 0x08,
+    FLOWSPEC        = 0x09,
+    FILTERSPEC      = 0x0a,
+    SENDER_TEMPLATE = 0x0b,
+    SENDER_TSPEC    = 0x0c,
+    POLICY_DATA     = 0x0e,
+    RESV_CONFIRM    = 0x0f
+};
 
 /*------------+-------------+-------------+-------------+
 |             IPv4 DestAddress (4 bytes)                |
@@ -75,6 +79,11 @@ struct RSVPSession : public RSVPObject
     uint8_t     protocol;   // 4
     uint8_t     flags;      // 5
     uint16_t    dest_port;  // 6 - 7
+};
+
+enum RSVPSessionFlags : uint8_t {
+    NONE    = 0x00,
+    EPOLICE = 0x01
 };
 
 /*------------+-------------+-------------+-------------+
@@ -114,8 +123,8 @@ struct RSVPErrorSpec : public RSVPObject
     uint16_t    err_value;  // 6 - 7
 };
 
-#define RSVP_ERROR_INPLACE      1
-#define RSVP_ERROR_NOTGUILTY    2
+#define RSVP_ERR_FLAG_INPLACE   0x01
+#define RSVP_ERR_FLAG_NOTGUILTY 0x02
 
 /*------------+-------------+-------------+-------------+
 |                IPv4 Src Address (4 bytes)             |
@@ -124,7 +133,7 @@ struct RSVPErrorSpec : public RSVPObject
 +-------------+-------------+-------------+-------------+
 |                IPv4 Src Address (4 bytes)             |
 +-------------+-------------+-------------+------------*/
-struct RSVPScopeAddress : public RSVPObject
+struct RSVPScope : public RSVPObject
 {
     // Variable number of addresses...
 };
@@ -134,13 +143,65 @@ struct RSVPScopeAddress : public RSVPObject
 +-------------+-------------+-------------+------------*/
 struct RSVPStyle : public RSVPObject
 {
-    uint8_t     flags;      // 0
-    uint32_t    options:24; // 1 - 3
+    uint8_t     flags;          // 0
+    uint32_t    options : 24;   // 1 - 3
 };
 
-/* RFC 2210 */
-struct RSVPFlowspec : public RSVPObject
+/*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   V   |    Unused             |     OVERALL LENGTH            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
+struct RSVPIntServHeader : public RSVPObject
 {
+	uint8_t 	version : 4;	// 0
+	uint16_t	_   	: 12;   //   - 1
+	uint16_t	length; 		// 2 - 3
+};
+
+/*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  SVC_NUMBER   |B| Reserved    |            SVC_LENGTH         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
+struct RSVPPerServiceHeader
+{
+	uint8_t 	service_nr; // 0
+	bool		break_b;	// 1
+	uint8_t 	_ : 7;
+	uint16_t	length; 	// 2 - 3
+};
+
+/*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  PARAM_NUM    |I   FLAGS      |         PARAM_LENGTH          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
+struct RSVPServiceParamHeader
+{
+	uint8_t 	param_nr;   // 0
+	uint8_t 	flags;  	// 1
+	uint16_t	length; 	// 2 - 3
+};
+
+/*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|    5  (c)     |0| reserved    |             6 (d)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   127 (e)     |    0 (f)      |             5 (g)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Token Bucket Rate [r] (32-bit IEEE floating point number)    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Token Bucket Size [b] (32-bit IEEE floating point number)    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Peak Data Rate [p] (32-bit IEEE floating point number)       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Minimum Policed Unit [m] (32-bit integer)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Maximum Packet Size [M]  (32-bit integer)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
+struct RSVPFlowspec : public RSVPIntServHeader
+{
+	RSVPPerServiceHeader	service_header; // 0  - 3
+	RSVPServiceParamHeader  param_header;   // 4  - 7
+	float   				r;  			// 8  - 11
+	float   				b;  			// 12 - 15
+	float   				p;  			// 16 - 19
+	uint32_t				m;  			// 20 - 23
+	uint32_t				M;  			// 24 - 27
 };
 
 /*------------+-------------+-------------+-------------+
@@ -167,9 +228,32 @@ struct RSVPSenderTemplate : public RSVPObject
     uint16_t    src_port;   // 6 - 7
 };
 
-/**/
-struct RSVPSenderTspec : public RSVPObject
+/*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+| 0 (a) |    reserved           |             7 (b)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|    1  (c)     |0| reserved    |             6 (d)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   127 (e)     |    0 (f)      |             5 (g)             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Token Bucket Rate [r] (32-bit IEEE floating point number)    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Token Bucket Size [b] (32-bit IEEE floating point number)    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Peak Data Rate [p] (32-bit IEEE floating point number)       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Minimum Policed Unit [m] (32-bit integer)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Maximum Packet Size [M]  (32-bit integer)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
+struct RSVPSenderTspec : public RSVPIntServHeader
 {
+	RSVPPerServiceHeader	service_header; // 0  - 3
+	RSVPServiceParamHeader  param_header;   // 4  - 7
+	float   				r;  			// 8  - 11
+	float   				b;  			// 12 - 15
+	float   				p;  			// 16 - 19
+	uint32_t				m;  			// 20 - 23
+	uint32_t				M;  			// 24 - 27
 };
 
 /**/
