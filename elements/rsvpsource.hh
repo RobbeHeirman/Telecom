@@ -34,7 +34,7 @@ public:
                                        uint32_t       lih = 0x00000000);
 
     static unsigned char* add_time_values(unsigned char* packet,
-                                          uint32_t       refresh);
+                                          int32_t       refresh);
 
     static unsigned char* add_sender_template(unsigned char* packet,
                                               uint32_t       source_address,

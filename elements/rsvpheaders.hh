@@ -76,7 +76,7 @@ enum RSVPClass : uint8_t {
 struct RSVPSession : public RSVPObject
 {
     uint32_t    dest_addr;  // 0 - 3
-    uint8_t     protocol;   // 4
+    uint8_t     proto;      // 4
     uint8_t     flags;      // 5
     uint16_t    dest_port;  // 6 - 7
 };
@@ -152,9 +152,9 @@ struct RSVPStyle : public RSVPObject
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
 struct RSVPIntServHeader : public RSVPObject
 {
-	uint8_t 	version : 4;	// 0
-	uint16_t	_   	: 12;   //   - 1
-	uint16_t	length; 		// 2 - 3
+    uint8_t     version : 4;    // 0
+    uint16_t    _       : 12;   //   - 1
+    uint16_t    o_length;       // 2 - 3
 };
 
 /*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -162,10 +162,10 @@ struct RSVPIntServHeader : public RSVPObject
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
 struct RSVPPerServiceHeader
 {
-	uint8_t 	service_nr; // 0
-	bool		break_b;	// 1
-	uint8_t 	_ : 7;
-	uint16_t	length; 	// 2 - 3
+    uint8_t     service_nr;     // 0
+    uint8_t     break_b : 1;    // 1
+    uint8_t     _ : 7;
+    uint16_t    length;         // 2 - 3
 };
 
 /*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -173,9 +173,9 @@ struct RSVPPerServiceHeader
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
 struct RSVPServiceParamHeader
 {
-	uint8_t 	param_nr;   // 0
-	uint8_t 	flags;  	// 1
-	uint16_t	length; 	// 2 - 3
+    uint8_t     param_nr;   // 0
+    uint8_t     flags;      // 1
+    uint16_t    length;     // 2 - 3
 };
 
 /*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -195,13 +195,13 @@ struct RSVPServiceParamHeader
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
 struct RSVPFlowspec : public RSVPIntServHeader
 {
-	RSVPPerServiceHeader	service_header; // 0  - 3
-	RSVPServiceParamHeader  param_header;   // 4  - 7
-	float   				r;  			// 8  - 11
-	float   				b;  			// 12 - 15
-	float   				p;  			// 16 - 19
-	uint32_t				m;  			// 20 - 23
-	uint32_t				M;  			// 24 - 27
+    RSVPPerServiceHeader    service_header; // 0  - 3
+    RSVPServiceParamHeader  param_header;   // 4  - 7
+    float                   r;              // 8  - 11
+    float                   b;              // 12 - 15
+    float                   p;              // 16 - 19
+    uint32_t                m;              // 20 - 23
+    uint32_t                M;              // 24 - 27
 };
 
 /*------------+-------------+-------------+-------------+
@@ -247,13 +247,13 @@ struct RSVPSenderTemplate : public RSVPObject
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+*/
 struct RSVPSenderTspec : public RSVPIntServHeader
 {
-	RSVPPerServiceHeader	service_header; // 0  - 3
-	RSVPServiceParamHeader  param_header;   // 4  - 7
-	float   				r;  			// 8  - 11
-	float   				b;  			// 12 - 15
-	float   				p;  			// 16 - 19
-	uint32_t				m;  			// 20 - 23
-	uint32_t				M;  			// 24 - 27
+    RSVPPerServiceHeader    service_header; // 0  - 3
+    RSVPServiceParamHeader  param_header;   // 4  - 7
+    float                   r;              // 8  - 11
+    float                   b;              // 12 - 15
+    float                   p;              // 16 - 19
+    uint32_t                m;              // 20 - 23
+    uint32_t                M;              // 24 - 27
 };
 
 /**/
