@@ -197,7 +197,7 @@ struct RSVPFlowspec : public RSVPIntServHeader
 {
     RSVPPerServiceHeader    service_header; // 0  - 3
     RSVPServiceParamHeader  param_header;   // 4  - 7
-    float                   r;              // 8  - 11
+    uint32_t                r;              // 8  - 11
     float                   b;              // 12 - 15
     float                   p;              // 16 - 19
     uint32_t                m;              // 20 - 23

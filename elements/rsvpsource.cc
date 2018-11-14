@@ -106,9 +106,14 @@ unsigned char* RSVPSource::add_sender_tspec(unsigned char* const packet,
     s_tspec->service_header.length      = htons(0x0006);
     s_tspec->param_header.param_nr      = 0x7f;
     s_tspec->param_header.length        = htons(0x0005);
-    s_tspec->r                          = htonl(*(uint32_t*)&r);
-    s_tspec->b                          = htonl(*(uint32_t*)&b);
-    s_tspec->p                          = htonl(*(uint32_t*)&p);
+
+    uint32_t const temp_r {htonl(*(uint32_t*)&r)};
+    uint32_t const temp_b {htonl(*(uint32_t*)&b)};
+    uint32_t const temp_p {htonl(*(uint32_t*)&p)};
+    s_tspec->r                          = *(float*)&temp_r;
+    s_tspec->b                          = *(float*)&temp_b;
+    s_tspec->p                          = *(float*)&temp_p;
+
     s_tspec->m                          = htonl(m);
     s_tspec->M                          = htonl(M);
     return packet + sizeof(RSVPSenderTspec);
@@ -142,11 +147,11 @@ Packet* RSVPSource::pull(int) {
     loc = add_rsvp_hop(loc, 0x01234567);
     loc = add_time_values(loc, 0x0000ffff);
     loc = add_sender_template(loc, 0x01234567, 0x1234);
-    loc = add_sender_tspec(loc, 4567, 5678, 6789, 1234, 4321);
+    loc = add_sender_tspec(loc, 1, 1, 1, 1234, 4321);
 
     auto* const header {(RSVPHeader*) packet->data()};
     header->length = htons(packetsize);
-    header->checksum = htons(click_in_cksum(packet->data(), packetsize));
+    header->checksum = click_in_cksum(packet->data(), packetsize);
 
     return packet;
 }
