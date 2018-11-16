@@ -11,7 +11,7 @@ Voorlopig hebben we enkel het sturen van de RSVP berichten geïmplementeerd.
 
 ## Elementen
 
-* RSVPSource: genereert RSVP berichten mbv een handler. Er wordt ook genoeg ruimte voorzien voor UDP, IPv4 en Ethernet headers.
+* RSVPSource: genereert RSVP berichten mbv een handler. Er wordt ook genoeg ruimte voorzien voor UDP, IPv4 en Ethernet headers. Dit element is agnostic, de output kan dus als zowel push als pull gebruikt worden.
 
 * De verschillende structs in RSVPStructs.hh: deze representeren de verschillende RSVP objecten etc.
 
