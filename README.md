@@ -1,8 +1,8 @@
 
 # Project Telecom
 
-Robbe Heirman, [robbe.heirman@student.uantwerpen.be]
-Jules Desmet, [jules.desmet@student.uantwerpen.be]
+Robbe Heirman, robbe.heirman@student.uantwerpen.be
+Jules Desmet, jules.desmet@student.uantwerpen.be
 
 ## Tussentijdse evaluatie
 
@@ -18,12 +18,12 @@ Voorlopig hebben we enkel het sturen van de RSVP berichten geïmplementeerd.
 
 * RSVPSource.send: genereert een RSVP pakket afhankelijk van het argument, de mogelijke argumenten zijn (hoofdletters zijn nodig):
 
-..* Path
-..* Resv
-..* PathErr
-..* ResvErr
-..* PathTear
-..* ResvTear
-..* ResvConf
+  * Path
+  * Resv
+  * PathErr
+  * ResvErr
+  * PathTear
+  * ResvTear
+  * ResvConf
 
-... Bijvoorbeeld voor een RSVPSource element 'source' kan je met "source.send Path" een RSVP path bericht genereren.
+   Bijvoorbeeld voor een RSVPSource element 'source' kan je met "source.send Path" een RSVP path bericht genereren.
