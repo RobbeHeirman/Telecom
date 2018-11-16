@@ -2,7 +2,7 @@
 #ifndef CLICK_RSVPSOURCE_HH
 #define CLICK_RSVPSOURCE_HH
 
-#include "rsvp_structs.hh"
+#include "RSVPStructs.hh"
 
 #include <string.h>
 #include <click/error.hh>

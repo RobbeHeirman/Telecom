@@ -1,6 +1,6 @@
 
 #include <click/config.h>
-#include "rsvpsource.hh"
+#include "RSVPSource.hh"
 
 #include <sys/types.h>
 #include <click/args.hh>
