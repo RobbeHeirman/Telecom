@@ -2,6 +2,7 @@
 # Project Telecom
 
 Robbe Heirman, robbe.heirman@student.uantwerpen.be
+
 Jules Desmet, jules.desmet@student.uantwerpen.be
 
 ## Tussentijdse evaluatie
