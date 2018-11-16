@@ -159,27 +159,61 @@ void RSVPSource::complete_header(WritablePacket* const packet, unsigned int cons
     header->checksum = click_in_cksum(packet->data(), size);
 }
 
+void RSVPSource::push(int, Packet*) {
+
+    switch (m_send) {
+    case 'P':
+        output(0).push((Packet*) generate_path());
+        break;
+    case 'R':
+        output(0).push((Packet*) generate_resv());
+        break;
+    case 'E':
+        output(0).push((Packet*) generate_path_err());
+        break;
+    case 'e':
+        output(0).push((Packet*) generate_resv_err());
+        break;
+    case 'T':
+        output(0).push((Packet*) generate_path_tear());
+        break;
+    case 't':
+        output(0).push((Packet*) generate_resv_tear());
+        break;
+    case 'C':
+        output(0).push((Packet*) generate_resv_conf());
+        break;
+    }
+    m_send = ' ';
+}
+
 Packet* RSVPSource::pull(int) {
 
     switch (m_send) {
-        case ' ':
-            return nullptr;
-        case 'P':
-            return generate_path();
-        case 'R':
-            return generate_resv();
-        case 'E':
-            return generate_path_err();
-        case 'e':
-            return generate_resv_err();
-        case 'T':
-            return generate_path_tear();
-        case 't':
-            return generate_resv_tear();
-        case 'C':
-            return generate_resv_conf();
-        default:
-            m_send = ' ';
+    case 'P':
+        m_send = ' ';
+        return generate_path();
+    case 'R':
+        m_send = ' ';
+        return generate_resv();
+    case 'E':
+        m_send = ' ';
+        return generate_path_err();
+    case 'e':
+        m_send = ' ';
+        return generate_resv_err();
+    case 'T':
+        m_send = ' ';
+        return generate_path_tear();
+    case 't':
+        m_send = ' ';
+        return generate_resv_tear();
+    case 'C':
+        m_send = ' ';
+        return generate_resv_conf();
+    default:
+        m_send = ' ';
+        return nullptr;
     }
 }
 
@@ -211,6 +245,9 @@ int RSVPSource::send(const String& config, Element* const element, void* const t
         source->m_send = 'C';
     else
         return -1;
+
+    if (source->output_is_push(0))
+        source->push(0, nullptr);
     return 0;
 }
 
