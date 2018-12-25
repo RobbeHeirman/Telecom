@@ -36,14 +36,14 @@ WritablePacket* RSVPHost::generate_path(const int session_id) {
     assert(pair);
     const Session session {pair->value};
 
-    // Create a new packet with the given size
-    unsigned int const size {sizeof(RSVPHeader)     + sizeof(RSVPSession)        + sizeof(RSVPHop)
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)     + sizeof(RSVPSession)        + sizeof(RSVPHop)
                            + sizeof(RSVPTimeValues) + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
     WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
     if (not packet)
         return nullptr;
 
-    // Set all bits in the new packet to 0 for safety
+    // Set all bits in the new packet to 0
     auto pos_ptr {packet->data()};
     memset(pos_ptr, 0, size);
 
@@ -55,131 +55,190 @@ WritablePacket* RSVPHost::generate_path(const int session_id) {
     pos_ptr = RSVPSenderTemplate::write(pos_ptr, session.source_address, session.source_port);
     pos_ptr = RSVPSenderTSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_max_unit, s_max_size);
 
-    // Complete the RSVPHeader object by setting the size and checksum correctly
+    // Complete the header by setting the size and checksum correctly
     complete_header(packet, size);
     return packet;
 }
 
-//WritablePacket* RSVPHost::generate_resv(const int session_id) {
-//
-//    unsigned int const size {sizeof(RSVPHeader)     + sizeof(RSVPSession) + sizeof(RSVPHop)
-//                             + sizeof(RSVPTimeValues) + sizeof(RSVPStyle)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
-//    pos_ptr = RSVPSession   ::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPHop       ::write(pos_ptr, 0x01234567);
-//    pos_ptr = RSVPTimeValues::write(pos_ptr, 0x0000ffff);
-//    pos_ptr = RSVPStyle     ::write(pos_ptr);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
-//
-//WritablePacket* RSVPHost::generate_path_err(const int session_id) {
-//
-//    unsigned int const size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPErrorSpec)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader   ::write(pos_ptr, RSVPHeader::PathErr);
-//    pos_ptr = RSVPSession  ::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPErrorSpec::write(pos_ptr, 0x76543210, 0x00);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
-//
-//WritablePacket* RSVPHost::generate_resv_err(const int session_id) {
-//
-//    unsigned int const size{sizeof(RSVPHeader)    + sizeof(RSVPSession) + sizeof(RSVPHop)
-//                            + sizeof(RSVPErrorSpec) + sizeof(RSVPStyle)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader   ::write(pos_ptr, RSVPHeader::PathErr);
-//    pos_ptr = RSVPSession  ::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPHop      ::write(pos_ptr, 0x01234567);
-//    pos_ptr = RSVPErrorSpec::write(pos_ptr, 0x76543210, 0x00);
-//    pos_ptr = RSVPStyle    ::write(pos_ptr);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
-//
-//WritablePacket* RSVPHost::generate_path_tear(const int session_id) {
-//
-//    unsigned int const size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPHop)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader ::write(pos_ptr, RSVPHeader::PathTear);
-//    pos_ptr = RSVPSession::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPHop    ::write(pos_ptr, 0x01234567);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
-//
-//WritablePacket* RSVPHost::generate_resv_tear(const int session_id) {
-//
-//    unsigned int const size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPHop) + sizeof(RSVPStyle)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader ::write(pos_ptr, RSVPHeader::ResvTear);
-//    pos_ptr = RSVPSession::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPHop    ::write(pos_ptr, 0x01234567);
-//    pos_ptr = RSVPStyle  ::write(pos_ptr);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
-//
-//WritablePacket* RSVPHost::generate_resv_conf(const int session_id) {
-//
-//    unsigned int const size{sizeof(RSVPHeader)      + sizeof(RSVPSession) + sizeof(RSVPErrorSpec)
-//                            + sizeof(RSVPResvConfirm) + sizeof(RSVPStyle)};
-//    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-//    if (not packet)
-//        return nullptr;
-//
-//    auto pos_ptr {packet->data()};
-//    memset(pos_ptr, 0, size);
-//
-//    pos_ptr = RSVPHeader     ::write(pos_ptr, RSVPHeader::PathErr);
-//    pos_ptr = RSVPSession    ::write(pos_ptr, 0x0f0f0f0f, 0x11, 4321);
-//    pos_ptr = RSVPErrorSpec  ::write(pos_ptr, 0x76543210, 0x00);
-//    pos_ptr = RSVPResvConfirm::write(pos_ptr, 0x0f0f0f0f);
-//    pos_ptr = RSVPStyle      ::write(pos_ptr);
-//
-//    complete_header(packet, size);
-//    return packet;
-//}
+WritablePacket* RSVPHost::generate_resv(const int session_id) {
+
+    // Get the session with the given ID, make sure it exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)     + sizeof(RSVPSession) + sizeof(RSVPHop)
+                           + sizeof(RSVPTimeValues) + sizeof(RSVPStyle)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
+    pos_ptr = RSVPSession   ::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPHop       ::write(pos_ptr, session.source_address);
+    pos_ptr = RSVPTimeValues::write(pos_ptr, s_refresh);
+    pos_ptr = RSVPStyle     ::write(pos_ptr);
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPHost::generate_path_err(const int session_id) {
+
+    // Get the session with the given ID, make sure it exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPErrorSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader   ::write(pos_ptr, RSVPHeader::PathErr);
+    pos_ptr = RSVPSession  ::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPErrorSpec::write(pos_ptr, session.destination_address, 0x00);
+    // (destination address because this is a host and the source shouldn't send PathErr messages)
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPHost::generate_resv_err(const int session_id) {
+
+    // Get the session with the given ID, make sure it exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size{sizeof(RSVPHeader)    + sizeof(RSVPSession) + sizeof(RSVPHop)
+                          + sizeof(RSVPErrorSpec) + sizeof(RSVPStyle)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader   ::write(pos_ptr, RSVPHeader::PathErr);
+    pos_ptr = RSVPSession  ::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPHop      ::write(pos_ptr, session.source_address);
+    pos_ptr = RSVPErrorSpec::write(pos_ptr, session.source_address, 0x00);
+    // (source address because this is a host and the destination shouldn't send ResvErr messages)
+    pos_ptr = RSVPStyle    ::write(pos_ptr);
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPHost::generate_path_tear(const int session_id) {
+
+    // Get the session with the given ID, make sure it actually exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPHop)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader ::write(pos_ptr, RSVPHeader::PathTear);
+    pos_ptr = RSVPSession::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPHop    ::write(pos_ptr, session.source_address);
+    // (source address because this is a host and the destination shouldn't send PathTear messages)
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPHost::generate_resv_tear(const int session_id) {
+
+    // Get the session with the given ID, make sure it actually exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession) + sizeof(RSVPHop) + sizeof(RSVPStyle)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader ::write(pos_ptr, RSVPHeader::ResvTear);
+    pos_ptr = RSVPSession::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPHop    ::write(pos_ptr, session.destination_address);
+    // (destination address because this is a host and the source shouldn't send ResvTear messages)
+    pos_ptr = RSVPStyle  ::write(pos_ptr);
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPHost::generate_resv_conf(const int session_id) {
+
+    // Get the session with the given ID, make sure it actually exists
+    SessionMap::Pair *const pair {m_sessions.find_pair(session_id)};
+    assert(pair);
+    const Session session {pair->value};
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)      + sizeof(RSVPSession) + sizeof(RSVPErrorSpec)
+                           + sizeof(RSVPResvConfirm) + sizeof(RSVPStyle)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    pos_ptr = RSVPHeader     ::write(pos_ptr, RSVPHeader::PathErr);
+    pos_ptr = RSVPSession    ::write(pos_ptr, session.destination_address, 0x11, session.destination_port);
+    pos_ptr = RSVPErrorSpec  ::write(pos_ptr, session.source_address, 0x00);
+    pos_ptr = RSVPResvConfirm::write(pos_ptr, session.destination_address);
+    pos_ptr = RSVPStyle      ::write(pos_ptr);
+
+    // Complete the header by setting the size and checksum correctly
+    complete_header(packet, size);
+    return packet;
+}
 
 void RSVPHost::complete_header(WritablePacket *const packet, const int size) {
 
+    // Convert the pointer and set the length and checksum in the header
     const auto header {(RSVPHeader*) packet->data()};
     header->length = htons(size);
     header->checksum = click_in_cksum(packet->data(), size);
