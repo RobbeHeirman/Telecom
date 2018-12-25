@@ -2,6 +2,7 @@
 #include <click/config.h>
 #include "RSVPHost.hh"
 
+#include <sys/types.h>
 #include <click/args.hh>
 #include <click/glue.hh>
 
@@ -11,9 +12,24 @@ RSVPHost::RSVPHost() = default;
 
 RSVPHost::~RSVPHost() = default;
 
-void RSVPHost::push(int, Packet*) {}
+int RSVPHost::configure(Vector<String>& config, ErrorHandler *const errh) {
 
-Packet* RSVPHost::pull(int) {}
+    // Prepare variables for the parse results
+
+
+    // Parse the config vector
+    int result {Args(config, this, errh)
+            // TODO: parse arguments
+            .complete()};
+
+    // Check whether the parse failed
+    if (result < 0) {
+        return result;
+    }
+    return 0;
+}
+
+void RSVPHost::push(int, Packet*) {}
 
 int RSVPHost::session(const String& config, Element *const element, void *const thunk, ErrorHandler *const errh) {
 
@@ -26,11 +42,11 @@ int RSVPHost::session(const String& config, Element *const element, void *const 
 
     // Prepare variables for the parse results
     int session_id {0};
-    uint32_t destination_address {0};
+    in_addr destination_address {0};
     uint16_t destination_port {0};
 
     // Parse the config vector
-    result {Args(vconfig, host, errh)
+    int result {Args(vconfig, host, errh)
             .read_mp("ID", session_id)
             .read_mp("DST", destination_address)
             .read_mp("PORT", destination_port)
@@ -43,6 +59,7 @@ int RSVPHost::session(const String& config, Element *const element, void *const 
 
     // TODO: create new session
 
+    click_chatter("Registered session %d", session_id);
     return 0;
 }
 
@@ -57,11 +74,11 @@ int RSVPHost::sender(const String& config, Element *const element, void *const t
 
     // Prepare variables for the parse results
     int session_id {0};
-    uint32_t source_address {0};
+    in_addr source_address {0};
     uint16_t source_port {0};
 
     // Parse the config vector
-    result {Args(vconfig, host, errh)
+    int result {Args(vconfig, host, errh)
             .read_mp("ID", session_id)
             .read_mp("SRC", source_address)
             .read_mp("PORT", source_port)
@@ -74,6 +91,7 @@ int RSVPHost::sender(const String& config, Element *const element, void *const t
 
     // TODO: initialise new sender
 
+    click_chatter("Defined session %d sender", session_id);
     return 0;
 }
 
@@ -91,7 +109,7 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const 
     int confirmation {0};
 
     // Parse the config vector
-    result {Args(vconfig, host, errh)
+    int result {Args(vconfig, host, errh)
             .read_mp("ID", session_id)
             .read_p("CONF", confirmation)
             .complete()};
@@ -103,6 +121,7 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const 
 
     // TODO: confirm the reservation
 
+    click_chatter("Reservation confirmed for session %d", session_id);
     return 0;
 }
 
@@ -119,9 +138,9 @@ int RSVPHost::release(const String& config, Element *const element, void *const 
     int session_id {0};
 
     // Parse the config vector
-    result {Args(vconfig, host, errh)
-                    .read_mp("ID", session_id)
-                    .complete()};
+    int result {Args(vconfig, host, errh)
+            .read_mp("ID", session_id)
+            .complete()};
 
     // Check whether the parse failed
     if (result < 0) {
@@ -130,6 +149,7 @@ int RSVPHost::release(const String& config, Element *const element, void *const 
 
     // TODO: release session
 
+    click_chatter("Released reservation for session %d", session_id);
     return 0;
 }
 
