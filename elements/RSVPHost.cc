@@ -236,6 +236,14 @@ WritablePacket* RSVPHost::generate_resv_conf(const int session_id) {
     return packet;
 }
 
+void RSVPHost::complete_header(WritablePacket *const packet, const int size) {
+
+    // Convert the pointer and set the length and checksum in the header
+    const auto header {(RSVPHeader*) packet->data()};
+    header->length = htons(size);
+    header->checksum = click_in_cksum(packet->data(), size);
+}
+
 void RSVPHost::push_path(Timer *const timer, void *const user_data) {
 
     // Check whether user_data contains valid data
@@ -250,14 +258,6 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
 
     // Set the timer again
     timer->reschedule_after_msec(s_refresh);
-}
-
-void RSVPHost::complete_header(WritablePacket *const packet, const int size) {
-
-    // Convert the pointer and set the length and checksum in the header
-    const auto header {(RSVPHeader*) packet->data()};
-    header->length = htons(size);
-    header->checksum = click_in_cksum(packet->data(), size);
 }
 
 int RSVPHost::session(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
