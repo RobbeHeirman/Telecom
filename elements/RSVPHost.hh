@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <sys/types.h>
+#include <click/timer.hh>
 #include <click/error.hh>
 #include <click/element.hh>
 #include <clicknet/ether.h>
@@ -50,7 +51,17 @@ public:
     WritablePacket* generate_resv_conf(int);
     static void complete_header(WritablePacket*, int);
 
+    // Timer callback data and function
+private:
+    struct TimerData
+    {
+        RSVPHost* host;
+        int session_id;
+    };
+    static void push_path(Timer*, void*);
+
     // Handler functions
+public:
     /// session ID <int>, DST <addr>, PORT <port>
     static int session(const String&, Element*, void*, ErrorHandler*);
     /// sender ID <int>, SRC <addr>, PORT <port>
