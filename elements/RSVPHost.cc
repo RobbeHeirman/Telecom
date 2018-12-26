@@ -236,6 +236,22 @@ WritablePacket* RSVPHost::generate_resv_conf(const int session_id) {
     return packet;
 }
 
+void RSVPHost::push_path(Timer *const timer, void *const user_data) {
+
+    // Check whether user_data contains valid data
+    const auto data {(TimerData*) user_data};
+    assert(data);
+    assert(data->host);
+    assert(data->host->m_sessions.find_pair(data->session_id));
+
+    // Generate a new PATH message and push it
+    const auto packet {data->host->generate_path(data->session_id)};
+    data->host->output(0).push(packet);
+
+    // Set the timer again
+    timer->reschedule_after_msec(s_refresh);
+}
+
 void RSVPHost::complete_header(WritablePacket *const packet, const int size) {
 
     // Convert the pointer and set the length and checksum in the header
@@ -244,7 +260,7 @@ void RSVPHost::complete_header(WritablePacket *const packet, const int size) {
     header->checksum = click_in_cksum(packet->data(), size);
 }
 
-int RSVPHost::session(const String& config, Element *const element, void *const thunk, ErrorHandler *const errh) {
+int RSVPHost::session(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
 
     // The element should be an RSVP host
     const auto host {(RSVPHost*) element};
@@ -272,19 +288,18 @@ int RSVPHost::session(const String& config, Element *const element, void *const 
 
     // Check whether a session with the given ID doesn't already exist
     if (host->m_sessions.find_pair(session_id)) {
-        click_chatter("Session with ID %d already exists", session_id);
-        return -1;
+        return errh->warning("Session with ID %d already exists", session_id);
     }
 
     // Create a new session and add it to m_sessions
-    Session session {destination_address, destination_port};
+    Session session {destination_address, destination_port, 0, 0};
     host->m_sessions.insert(session_id, session);
 
-    click_chatter("Registered session %d", session_id);
+    errh->message("Registered session %d", session_id);
     return 0;
 }
 
-int RSVPHost::sender(const String& config, Element *const element, void *const thunk, ErrorHandler *const errh) {
+int RSVPHost::sender(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
 
     // The element should be an RSVP host
     const auto host {(RSVPHost*) element};
@@ -313,8 +328,7 @@ int RSVPHost::sender(const String& config, Element *const element, void *const t
     // Check whether a session with the given ID does actually exist
     SessionMap::Pair *const pair {host->m_sessions.find_pair(session_id)};
     if (not pair) {
-        click_chatter("Session with ID %d doesn't exist", session_id);
-        return -1;
+        return errh->error("Session with ID %d doesn't exist", session_id);
     }
 
     // Add the source address and port to the session
@@ -322,14 +336,16 @@ int RSVPHost::sender(const String& config, Element *const element, void *const t
     pair->value.source_port = source_port;
 
     // Start sending PATH messages
-    host->output(0).push(host->generate_path(session_id));
-    // TODO: set timer
+    TimerData *const data {new TimerData {host, session_id}};
+    Timer *const timer {new Timer {push_path, data}};
+    timer->initialize(host);
+    timer->schedule_now();
 
-    click_chatter("Defined session %d sender", session_id);
+    errh->message("Defined session %d sender", session_id);
     return 0;
 }
 
-int RSVPHost::reserve(const String& config, Element *const element, void *const thunk, ErrorHandler *const errh) {
+int RSVPHost::reserve(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
 
     // The element should be an RSVP host
     const auto host {(RSVPHost*) element};
@@ -353,13 +369,19 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const 
         return result;
     }
 
+    // Check whether a session with the given ID does actually exist
+    SessionMap::Pair *const pair {host->m_sessions.find_pair(session_id)};
+    if (not pair) {
+        return errh->error("Session with ID %d doesn't exist", session_id);
+    }
+
     // TODO: confirm the reservation
 
-    click_chatter("Reservation confirmed for session %d", session_id);
+    errh->message("Reservation confirmed for session %d", session_id);
     return 0;
 }
 
-int RSVPHost::release(const String& config, Element *const element, void *const thunk, ErrorHandler *const errh) {
+int RSVPHost::release(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
 
     // The element should be an RSVP host
     const auto host {(RSVPHost*) element};
@@ -381,9 +403,15 @@ int RSVPHost::release(const String& config, Element *const element, void *const 
         return result;
     }
 
+    // Check whether a session with the give ID does actually exist
+    SessionMap::Pair *const pair {host->m_sessions.find_pair(session_id)};
+    if (not pair) {
+        return errh->error("Session with ID %d doesn't exist", session_id);
+    }
+
     // TODO: release session
 
-    click_chatter("Released reservation for session %d", session_id);
+    errh->message("Released reservation for session %d", session_id);
     return 0;
 }
 
