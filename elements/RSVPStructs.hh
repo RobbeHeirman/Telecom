@@ -4,8 +4,9 @@
 #ifndef CLICK_RSVPMESSAGE_HH
 #define CLICK_RSVPMESSAGE_HH
 
-#include <click/integers.hh>
+#include <sys/types.h>
 #include <click/glue.hh>
+#include <click/integers.hh>
 
 CLICK_DECLS
 
@@ -44,11 +45,11 @@ struct RSVPHeader
     uint16_t    length;     // 6 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                RSVPHeader::Type const message_type,
-                                uint8_t const send_ttl = 250) {
+    static unsigned char* write(unsigned char *const packet,
+                                const RSVPHeader::Type message_type,
+                                const uint8_t send_ttl = 250) {
 
-        auto const header {(RSVPHeader*) packet};
+        const auto header {(RSVPHeader*) packet};
         header->version     = RSVPVersion;
         header->msg_type    = message_type;
         header->send_ttl    = send_ttl;
@@ -96,23 +97,23 @@ struct RSVPSession : public RSVPObject
         EPolice = 0x01
     };
 
-    uint32_t    dest_addr;  // 0 - 3
+    in_addr     dest_addr;  // 0 - 3
     uint8_t     proto;      // 4
     Flags       flags;      // 5
     uint16_t    dest_port;  // 6 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const destination_address,
-                                uint8_t  const proto,
-                                uint16_t const destination_port,
-                                Flags const flags = Flags::None) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr destination_address,
+                                const uint8_t proto,
+                                const uint16_t destination_port,
+                                const Flags flags = Flags::None) {
 
-        auto const session {(RSVPSession*) packet};
+        const auto session {(RSVPSession*) packet};
         session->length     = htons(sizeof(RSVPSession));
         session->class_num  = RSVPObject::Session;
         session->c_type     = 0x01;
-        session->dest_addr  = htonl(destination_address);
+        session->dest_addr  = destination_address;
         session->proto      = proto;
         session->flags      = flags;
         session->dest_port  = htons(destination_port);
@@ -128,19 +129,19 @@ struct RSVPSession : public RSVPObject
 +-------------+-------------+-------------+------------*/
 struct RSVPHop : public RSVPObject
 {
-    uint32_t    address;    // 0 - 3
+    in_addr     address;    // 0 - 3
     uint32_t    lih;        // 4 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const address,
-                                uint32_t const lih = 0) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr address,
+                                const uint32_t lih = 0) {
 
-        auto const hop {(RSVPHop*) packet};
+        const auto hop {(RSVPHop*) packet};
         hop->length     = htons(sizeof(RSVPHop));
         hop->class_num  = RSVPObject::Hop;
         hop->c_type     = 0x01;
-        hop->address    = htonl(address);
+        hop->address    = address;
         hop->lih        = htonl(lih);
         return packet + sizeof(RSVPHop);
     }
@@ -150,9 +151,9 @@ struct RSVPHop : public RSVPObject
 /**/
 struct RSVPIntegrity : public RSVPObject
 {
-    static unsigned char* write(unsigned char* const packet) {
+    static unsigned char* write(unsigned char *const packet) {
 
-        auto const integrity {(RSVPIntegrity*) packet};
+        const auto integrity {(RSVPIntegrity*) packet};
         integrity->length = htons(sizeof(RSVPIntegrity));
         integrity->class_num = RSVPObject::Integrity;
         integrity->c_type = 0x01;
@@ -169,10 +170,10 @@ struct RSVPTimeValues : public RSVPObject
     uint32_t    refresh;    // 0 - 3
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const refresh) {
+    static unsigned char* write(unsigned char *const packet,
+                                const uint32_t refresh) {
 
-        auto const time_values {(RSVPTimeValues*) packet};
+        const auto time_values {(RSVPTimeValues*) packet};
         time_values->length     = htons(sizeof(RSVPTimeValues));
         time_values->class_num  = RSVPObject::TimeValues;
         time_values->c_type     = 0x01;
@@ -194,19 +195,19 @@ struct RSVPErrorSpec : public RSVPObject
         NotGuilty   = 0x02
     };
 
-    uint32_t    address;    // 0 - 3
+    in_addr     address;    // 0 - 3
     uint8_t     flags;      // 4
     uint8_t     err_code;   // 5
     uint16_t    err_value;  // 6 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const address,
-                                uint8_t const flags,
-                                uint8_t const err_code = 0x00,
-                                uint16_t const err_value = 0x0000) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr address,
+                                const uint8_t flags,
+                                const uint8_t err_code = 0x00,
+                                const uint16_t err_value = 0x0000) {
 
-        auto const error_spec {(RSVPErrorSpec*) packet};
+        const auto error_spec {(RSVPErrorSpec*) packet};
         error_spec->length      = htons(sizeof(RSVPErrorSpec));
         error_spec->class_num   = RSVPObject::ErrorSpec;
         error_spec->c_type      = 0x01;
@@ -229,11 +230,12 @@ struct RSVPErrorSpec : public RSVPObject
 struct RSVPScope : public RSVPObject
 {
     // Variable number of addresses...
+    // TODO
     
     
-    static unsigned char* write(unsigned char* const packet) {
+    static unsigned char* write(unsigned char *const packet) {
         
-        auto const scope {(RSVPScope*) packet};
+        const auto scope {(RSVPScope*) packet};
         scope->length       = htons(sizeof(RSVPScope));
         scope->class_num    = RSVPObject::Scope;
         scope->c_type       = 1;
@@ -261,9 +263,9 @@ struct RSVPStyle : public RSVPObject
 #endif
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint8_t const sharing = 0b10,
-                                uint8_t const sender_selection = 0b001) {
+    static unsigned char* write(unsigned char *const packet,
+                                const uint8_t sharing = 0b10,
+                                const uint8_t sender_selection = 0b001) {
 
         auto style {(RSVPStyle*) packet};
         style->length       = htons(sizeof(RSVPStyle));
@@ -336,14 +338,14 @@ struct RSVPFlowSpec : public RSVPIntServHeader
     uint32_t                M;              // 24 - 27
     
     
-    static unsigned char* write(unsigned char* const packet,
+    static unsigned char* write(unsigned char *const packet,
                                 float const r,
                                 float const b,
                                 float const p,
-                                uint32_t const m,
-                                uint32_t const M) {
+                                const uint32_t m,
+                                const uint32_t M) {
 
-        auto const flow_spec {(RSVPFlowSpec*) packet};
+        const auto flow_spec {(RSVPFlowSpec*) packet};
         flow_spec->length                     = htons(sizeof(RSVPFlowSpec));
         flow_spec->class_num                  = RSVPObject::FlowSpec;
         flow_spec->c_type                     = 0x02;
@@ -354,9 +356,9 @@ struct RSVPFlowSpec : public RSVPIntServHeader
         flow_spec->param_header.param_nr      = 0x7f;
         flow_spec->param_header.length        = htons(0x0005);
 
-        uint32_t const temp_r {htonl(*(uint32_t*)&r)};
-        uint32_t const temp_b {htonl(*(uint32_t*)&b)};
-        uint32_t const temp_p {htonl(*(uint32_t*)&p)};
+        const uint32_t temp_r {htonl(*(uint32_t*)&r)};
+        const uint32_t temp_b {htonl(*(uint32_t*)&b)};
+        const uint32_t temp_p {htonl(*(uint32_t*)&p)};
         flow_spec->r                          = *(float*)&temp_r;
         flow_spec->b                          = *(float*)&temp_b;
         flow_spec->p                          = *(float*)&temp_p;
@@ -375,20 +377,20 @@ struct RSVPFlowSpec : public RSVPIntServHeader
 +-------------+-------------+-------------+------------*/
 struct RSVPFilterSpec : public RSVPObject
 {
-    uint32_t    src_addr;   // 0 - 3
+    in_addr     src_addr;   // 0 - 3
     uint16_t    _; // (unused) 4 - 5
     uint16_t    src_port;   // 6 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const source_address,
-                                uint32_t const source_port) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr source_address,
+                                const uint16_t source_port) {
 
-        auto const filter_spec {(RSVPFilterSpec*) packet};
+        const auto filter_spec {(RSVPFilterSpec*) packet};
         filter_spec->length     = htons(sizeof(RSVPFilterSpec));
         filter_spec->class_num  = RSVPObject::FilterSpec;
         filter_spec->c_type     = 0x01;
-        filter_spec->src_addr   = htonl(source_address);
+        filter_spec->src_addr   = source_address;
         filter_spec->src_port   = htons(source_port);
         return packet + sizeof(RSVPFilterSpec);
     }
@@ -402,20 +404,20 @@ struct RSVPFilterSpec : public RSVPObject
 +-------------+-------------+-------------+------------*/
 struct RSVPSenderTemplate : public RSVPObject
 {
-    uint32_t    src_addr;   // 0 - 3
+    in_addr     src_addr;   // 0 - 3
     uint16_t    _; // (unused) 4 - 5
     uint16_t    src_port;   // 6 - 7
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const source_address,
-                                uint16_t const source_port) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr source_address,
+                                const uint16_t source_port) {
 
-        auto const s_template {(RSVPSenderTemplate*) packet};
+        const auto s_template {(RSVPSenderTemplate*) packet};
         s_template->length      = htons(sizeof(RSVPSenderTemplate));
         s_template->class_num   = RSVPObject::SenderTemplate;
         s_template->c_type      = 0x01;
-        s_template->src_addr    = htonl(source_address);
+        s_template->src_addr    = source_address;
         s_template->src_port    = htons(source_port);
         return packet + sizeof(RSVPSenderTemplate);
     }
@@ -450,14 +452,14 @@ struct RSVPSenderTSpec : public RSVPIntServHeader
     uint32_t                M;              // 24 - 27
 
 
-    static unsigned char* write(unsigned char* const packet,
+    static unsigned char* write(unsigned char *const packet,
                                 float const          r,
                                 float const          b,
                                 float const          p,
-                                uint32_t const       m,
-                                uint32_t const       M) {
+                                const uint32_t       m,
+                                const uint32_t       M) {
 
-        auto const s_tspec {(RSVPSenderTSpec*) packet};
+        const auto s_tspec {(RSVPSenderTSpec*) packet};
         s_tspec->length                     = htons(sizeof(RSVPSenderTSpec));
         s_tspec->class_num                  = RSVPObject::SenderTSpec;
         s_tspec->c_type                     = 0x02;
@@ -468,9 +470,9 @@ struct RSVPSenderTSpec : public RSVPIntServHeader
         s_tspec->param_header.param_nr      = 0x7f;
         s_tspec->param_header.length        = htons(0x0005);
 
-        uint32_t const temp_r {htonl(*(uint32_t*)&r)};
-        uint32_t const temp_b {htonl(*(uint32_t*)&b)};
-        uint32_t const temp_p {htonl(*(uint32_t*)&p)};
+        const uint32_t temp_r {htonl(*(uint32_t*)&r)};
+        const uint32_t temp_b {htonl(*(uint32_t*)&b)};
+        const uint32_t temp_p {htonl(*(uint32_t*)&p)};
         s_tspec->r                          = *(float*)&temp_r;
         s_tspec->b                          = *(float*)&temp_b;
         s_tspec->p                          = *(float*)&temp_p;
@@ -485,9 +487,9 @@ struct RSVPSenderTSpec : public RSVPIntServHeader
 /**/
 struct RSVPPolicyData : public RSVPObject
 {
-    static unsigned char* write(unsigned char* const packet) {
+    static unsigned char* write(unsigned char *const packet) {
 
-        auto const policy_data {(RSVPPolicyData*) packet};
+        const auto policy_data {(RSVPPolicyData*) packet};
         policy_data->length     = htons(sizeof(RSVPPolicyData));
         policy_data->class_num  = RSVPObject::PolicyData;
         policy_data->c_type     = 0x01;
@@ -501,17 +503,17 @@ struct RSVPPolicyData : public RSVPObject
 +-------------+-------------+-------------+------------*/
 struct RSVPResvConfirm : public RSVPObject
 {
-    uint32_t    rec_addr;   // 0 - 3
+    in_addr     rec_addr;   // 0 - 3
 
 
-    static unsigned char* write(unsigned char* const packet,
-                                uint32_t const receiving_address) {
+    static unsigned char* write(unsigned char *const packet,
+                                const in_addr receiving_address) {
 
-        auto const resv_confirm {(RSVPResvConfirm*) packet};
+        const auto resv_confirm {(RSVPResvConfirm*) packet};
         resv_confirm->length    = htons(sizeof(RSVPResvConfirm));
         resv_confirm->class_num = RSVPObject::ResvConfirm;
         resv_confirm->c_type    = 0x01;
-        resv_confirm->rec_addr  = htonl(receiving_address);
+        resv_confirm->rec_addr  = receiving_address;
         return packet + sizeof(RSVPResvConfirm);
     }
 };
