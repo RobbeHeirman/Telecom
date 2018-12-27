@@ -7,6 +7,7 @@
 #define TELECOM_RSVPNODE_H
 
 #include <click/element.hh>
+#include "RSVPStructs.hh"
 
 
 CLICK_DECLS

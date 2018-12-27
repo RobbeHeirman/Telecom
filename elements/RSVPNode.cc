@@ -6,8 +6,11 @@ CLICK_DECLS
 
 void RSVPNode::push(int port, Packet* p){
 
-    click_chatter("Hello World");
-    output(0).push(p);
+    RSVPHeader* start_header = (RSVPHeader*) p->data();
+    if(start_header->msg_type == 1){
+        click_chatter("yaaay");
+    }
+    output(port).push(p);
 }
 
 CLICK_ENDDECLS
