@@ -38,18 +38,18 @@ public:
     const char* processing() const { return PUSH; }
 
     // Standard click functions
-    int configure(Vector<String>&, ErrorHandler*);
+    int configure(Vector<String>& config, ErrorHandler* errh);
     void push(int, Packet*);
 
     // Packet generators
-    WritablePacket* generate_path(int);
-    WritablePacket* generate_resv(int);
-    WritablePacket* generate_path_err(int);
-    WritablePacket* generate_resv_err(int);
-    WritablePacket* generate_path_tear(int);
-    WritablePacket* generate_resv_tear(int);
-    WritablePacket* generate_resv_conf(int);
-    static void complete_header(WritablePacket*, int);
+    WritablePacket* generate_path(int session_id);
+    WritablePacket* generate_resv(int session_id);
+    WritablePacket* generate_path_err(int session_id);
+    WritablePacket* generate_resv_err(int session_id);
+    WritablePacket* generate_path_tear(int session_id);
+    WritablePacket* generate_resv_tear(int session_id);
+    WritablePacket* generate_resv_conf(int session_id);
+    static void complete_header(WritablePacket* packet, int size);
 
     // Timer callback data and function
 private:
@@ -58,18 +58,18 @@ private:
         RSVPHost* host;
         int session_id;
     };
-    static void push_path(Timer*, void*);
+    static void push_path(Timer* timer, void* user_data);
 
     // Handler functions
 public:
     /// session ID <int>, DST <addr>, PORT <port>
-    static int session(const String&, Element*, void*, ErrorHandler*);
+    static int session(const String& config, Element* element, void*, ErrorHandler* errh);
     /// sender ID <int>, SRC <addr>, PORT <port>
-    static int sender(const String&, Element*, void*, ErrorHandler*);
+    static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
     /// reserve ID <int>, CONF <int?>
-    static int reserve(const String&, Element*, void*, ErrorHandler*);
+    static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
     /// release ID <int>
-    static int release(const String&, Element*, void*, ErrorHandler*);
+    static int release(const String& config, Element* element, void*, ErrorHandler* errh);
     void add_handlers();
 
 private:
