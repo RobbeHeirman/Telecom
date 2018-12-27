@@ -1,7 +1,24 @@
 #include <click/config.h>
+#include <click/args.hh>
 #include "RSVPNode.hh"
 
 CLICK_DECLS
+
+
+int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
+
+    // Parse the config vector
+    int result {Args(config, this, errh)
+                        .read_mp("AddressInfo", ElementCastArg("AddressInfo"), m_address_info)
+                        .complete()};
+
+    // Check whether the parse failed
+    if (result < 0) {
+        m_address_info = nullptr;
+        return -1;
+    }
+    return 0;
+}
 
 
 void RSVPNode::push(int port, Packet* p){
@@ -10,20 +27,27 @@ void RSVPNode::push(int port, Packet* p){
     // We can cast directly.
     RSVPHeader* header = (RSVPHeader*) p->data();
 
-
-
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
-        RSVPObject* session = (RSVPObject*) (header + 1 ) ;
 
-        while((const unsigned  char*)session < p->end_data()){
+        RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
 
-            if(session->class_num == RSVPObject::Class::Session){
-                click_chatter("YAY");
+        while((const unsigned  char*)object < p->end_data()){
+
+            // We want to handle on the type of object gets trough
+            switch (object->class_num){
+                case RSVPObject::Class::Hop:
+                    click_chatter("YAY");
+                    break;
+                default:
+                    break;
             }
-            session = (RSVPObject*) (session + 1);
+
+            // Go to the next RSVPObject
+            object = (RSVPObject*) (object + 1);
+
         }
-    click_chatter("I have reached the end");
+        click_chatter("I have reached the end");
 
     }
     output(port).push(p);
