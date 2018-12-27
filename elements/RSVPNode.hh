@@ -13,8 +13,16 @@ CLICK_DECLS
 
 class RSVPNode: public Element {
 
-    RSVPHost() = default;
-    ~RSVPHost() = default;
+public:
+    /// Constructor destructor
+    RSVPNode() = default;
+    ~RSVPNode() = default;
+
+    const char* class_name() const {return "RSVPNode";}
+    const char* port_count() const {return "1/1";} // Takes a rsvp modes and handles accordingly and outputs again 1/1
+    const char* processing() const {return PUSH;}
+
+    //void push(int port, Packet* p);
 
 
 };
