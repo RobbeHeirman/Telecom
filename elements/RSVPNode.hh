@@ -31,7 +31,7 @@ public:
 
 private:
     // needs to place his ip address in next hop.
-    AddressInfo* m_address_info;
+    IPAddress m_address_info;
 
 
 };

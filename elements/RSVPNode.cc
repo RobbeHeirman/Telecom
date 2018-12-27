@@ -9,12 +9,11 @@ int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
 
     // Parse the config vector
     int result {Args(config, this, errh)
-                        .read_mp("AddressInfo", ElementCastArg("AddressInfo"), m_address_info)
+                        .read_mp("AddressInfo", m_address_info)
                         .complete()};
 
     // Check whether the parse failed
     if (result < 0) {
-        m_address_info = nullptr;
         return -1;
     }
     return 0;
@@ -37,7 +36,8 @@ void RSVPNode::push(int port, Packet* p){
             // We want to handle on the type of object gets trough
             switch (object->class_num){
                 case RSVPObject::Class::Hop:
-                    click_chatter("YAY");
+                    click_chatter(String(m_address_info.unparse()).c_str()); // TODO: address needs to be placed at hop
+                    // TODO: soft state, log path for path in reverse order.
                     break;
                 default:
                     break;
