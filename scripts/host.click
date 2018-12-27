@@ -32,7 +32,7 @@ elementclass Host {
 		-> output;
 
 	// incoming packets
-	input	-> HostEtherFilter($address)
+	input	-> hef :: HostEtherFilter($address)
 		-> in_cl :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800)
 		-> arp_res :: ARPResponder($address)
 		-> output;
@@ -42,4 +42,10 @@ elementclass Host {
 
 	in_cl[2]
 		-> ip;
+
+	ipencap :: IPEncap(46, $address:ip, 0.0.0.0);
+	rsvpHost :: RSVPHost(ipencap)
+		-> ipencap
+		-> EtherEncap(0x0800, $address:eth, $address:eth)
+		-> hef;
 }
