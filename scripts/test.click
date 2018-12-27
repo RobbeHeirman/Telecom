@@ -16,10 +16,11 @@
 //	-> ToDump(push.pcap)
 //	-> Discard;
 
-host1::RSVPHost();
+ipencap::IPEncap(46, 2.2.2.2, 1.1.1.1);
+host1::RSVPHost(ipencap);
 
 host1
-	-> IPEncap(46, 2.2.2.2, 1.1.1.1)
+	-> ipencap
 	-> EtherEncap(0x0800, 2:2:2:2:2:2, 3:3:3:3:3:3)
 	-> ToDump(test.pcap)
 	-> Discard;

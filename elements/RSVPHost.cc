@@ -2,6 +2,7 @@
 #include <click/config.h>
 #include "RSVPHost.hh"
 
+#include <arpa/inet.h>
 #include <click/args.hh>
 #include <click/glue.hh>
 
@@ -13,16 +14,15 @@ RSVPHost::~RSVPHost() = default;
 
 int RSVPHost::configure(Vector<String>& config, ErrorHandler *const errh) {
 
-    // Prepare variables for the parse results
-
-
     // Parse the config vector
     int result {Args(config, this, errh)
+            .read_mp("IPENCAP", ElementCastArg("IPEncap"), m_ipencap)
             .complete()};
 
     // Check whether the parse failed
     if (result < 0) {
-        return result;
+        m_ipencap = nullptr;
+        return -1;
     }
     return 0;
 }
@@ -53,7 +53,7 @@ WritablePacket* RSVPHost::generate_path(const int session_id) {
     pos_ptr = RSVPHop           ::write(pos_ptr, session.source_address);
     pos_ptr = RSVPTimeValues    ::write(pos_ptr, s_refresh);
     pos_ptr = RSVPSenderTemplate::write(pos_ptr, session.source_address, session.source_port);
-    pos_ptr = RSVPSenderTSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_max_unit, s_max_size);
+    pos_ptr = RSVPSenderTSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
 
     // Complete the header by setting the size and checksum correctly
     complete_header(packet, size);
@@ -250,7 +250,18 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     const auto data {(TimerData*) user_data};
     assert(data);
     assert(data->host);
+
+    // Get the session with the given ID
     assert(data->host->m_sessions.find_pair(data->session_id));
+    const Session session {data->host->m_sessions.find_pair(data->session_id)->value};
+
+    // Set the destination address and port in the IPEncap element
+    char buf[INET_ADDRSTRLEN];
+    Vector<String> config {};
+    config.push_back(String("46"));                                                                      // PROTO
+    config.push_back(String(inet_ntop(AF_INET, &(session.source_address), buf, INET_ADDRSTRLEN)));      // SRC
+    config.push_back(String(inet_ntop(AF_INET, &(session.destination_address), buf, INET_ADDRSTRLEN))); // DST
+    data->host->m_ipencap->configure(config, ErrorHandler::default_handler());
 
     // Generate a new PATH message and push it
     const auto packet {data->host->generate_path(data->session_id)};

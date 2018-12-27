@@ -2,6 +2,7 @@
 #ifndef CLICK_RSVPHOST_HH
 #define CLICK_RSVPHOST_HH
 
+#include "../../ip/ipencap.hh"
 #include "RSVPStructs.hh"
 
 #include <string.h>
@@ -27,7 +28,6 @@ typedef HashMap<int, Session> SessionMap;
 class RSVPHost: public Element
 {
 public:
-
     // The constructor and destructor
     RSVPHost();
     ~RSVPHost();
@@ -76,6 +76,9 @@ private:
     // The current sessions
     HashMap<int, Session> m_sessions;
 
+    // The IPEncap element that (should) encapsulate any packet sent out by the RSVPHost element
+    IPEncap* m_ipencap;
+
     // The headroom needed for an ether and ip header
     static constexpr unsigned int s_headroom {sizeof(click_ip) + sizeof(click_ether)};
 
@@ -83,11 +86,11 @@ private:
     static constexpr uint32_t s_refresh {10000};
 
     // Values for RSVPSenderTSpec objects
-    static constexpr float s_bucket_rate {0.0};
-    static constexpr float s_bucket_size {0.0};
-    static constexpr float s_peak_rate {0.0};
-    static constexpr uint32_t s_max_unit {0};
-    static constexpr uint32_t s_max_size {0};
+    static constexpr float s_bucket_rate {10000};
+    static constexpr float s_bucket_size {1000};
+    static constexpr float s_peak_rate {100000};
+    static constexpr uint32_t s_min_unit {100};
+    static constexpr uint32_t s_max_size {1500};
 };
 
 CLICK_ENDDECLS
