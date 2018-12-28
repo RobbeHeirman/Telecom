@@ -26,6 +26,8 @@ void RSVPNode::push(int port, Packet* p){
     // We can cast directly.
     RSVPHeader* header = (RSVPHeader*) p->data();
 
+    click_chatter("packet size node: %s",String(p->length()).c_str());
+
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
 
@@ -55,6 +57,8 @@ void RSVPNode::push(int port, Packet* p){
                 case RSVPObject::Class::Hop : {
                     RSVPHop *hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
                     addr_prev_hop = IPAddress(hop->address);
+
+                    hop->address = this->m_address_info.in_addr();
                     object = (RSVPObject*)( hop + 1);
                     break;
                 }
@@ -112,7 +116,9 @@ void RSVPNode::push(int port, Packet* p){
         }
 
     }
+    header->checksum = click_in_cksum(p->data(),p->length());
     output(port).push(p);
+
 
 
 }
