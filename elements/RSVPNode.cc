@@ -35,10 +35,12 @@ void RSVPNode::push(int port, Packet* p){
 
             // We want to handle on the type of object gets trough
             switch (object->class_num){
-                case RSVPObject::Class::Hop:
+                case RSVPObject::Class::Hop: {
+
                     click_chatter(String(m_address_info.unparse()).c_str()); // TODO: address needs to be placed at hop
-                    // TODO: soft state, log path for path in reverse order.
+                    RSVPHop *hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
                     break;
+                }
                 default:
                     break;
             }

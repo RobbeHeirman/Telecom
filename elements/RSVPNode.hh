@@ -9,6 +9,7 @@
 #include <click/element.hh>
 #include <click/glue.hh>
 #include <click/standard/addressinfo.hh>
+#include <click/hashmap.hh>
 #include "RSVPStructs.hh"
 
 CLICK_DECLS
@@ -32,6 +33,15 @@ public:
 private:
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
+
+    // "These Path messages
+    // store "path state" in each node along the way. This path state
+    // includes at least the unicast IP address of the previous hop node,
+    // which is used to route the Resv messages hop-by-hop in the reverse
+    // direction."
+    //
+    // Bookkeeping for pathstate <Session ID, IP>
+    HashMap<int, IPAddress> m_path_state;
 
 
 };
