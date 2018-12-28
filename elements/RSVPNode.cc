@@ -40,6 +40,12 @@ void RSVPNode::push(int port, Packet* p){
 
             // We want to handle on the type of object gets trough
             switch (object->class_num){
+                case RSVPObject::Integrity: {
+                    click_chatter("INTEGRITY");
+                    RSVPIntegrity* integrity = (RSVPIntegrity*) object;
+                    object = (RSVPObject*) (integrity + 1);
+                    break;
+                }
                 case RSVPObject::Class::Session : {
                     if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
                     session = (RSVPSession*) object; // Downcast to RSVPSession object
@@ -47,21 +53,36 @@ void RSVPNode::push(int port, Packet* p){
                     break;
                 }
                 case RSVPObject::Class::Hop : {
-
                     RSVPHop *hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
                     addr_prev_hop = IPAddress(hop->address);
-                    object = (object*)( hop + 1);
+                    object = (RSVPObject*)( hop + 1);
                     break;
                 }
 
+                case RSVPObject::Class::TimeValues : {
+                    RSVPTimeValues* time = (RSVPTimeValues*) object;
+                    object = (RSVPObject*) (time + 1);
+                    break;
+                }
+                case RSVPObject::Class ::PolicyData : {
+                    RSVPPolicyData* pdata = (RSVPPolicyData*) object;
+                    object = (RSVPObject*) (pdata + 1);
+                    break;
+                }
                 case RSVPObject::Class::SenderTemplate : {
                     click_chatter(String(object->class_num).c_str());
                     if(sender != 0){click_chatter("More the one sender template");}
                     sender = (RSVPSenderTemplate*) object;
-                    click_chatter(String(sender->src_port).c_str());
+                    object = (RSVPObject*) (sender + 1);
+                    break;
+                }
+                case RSVPObject::Class::SenderTSpec : {
+                    RSVPSenderTSpec* tSpec = (RSVPSenderTSpec*) object;
+                    object = (RSVPObject*) (tSpec + 1);
                     break;
                 }
                 default:
+                    click_chatter("SHOULDN't HAPPEN!");
                     object = (RSVPObject*) (object + 1);
                     break;
             }
@@ -74,11 +95,20 @@ void RSVPNode::push(int port, Packet* p){
         uint64_t byte_session = this->session_to_bit(session);
         uint64_t byte_sender = this->sender_template_to_bit(sender);
 
+        PathState state;
+        state.prev_hop = addr_prev_hop;
+
+
         if(m_path_state.find(byte_sender) == m_path_state.end()){
-            click_chatter("Sender should be added");
+            m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
+        }
+
+        if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
+            click_chatter("New session added!");
+            m_path_state[byte_sender][byte_session] = state;
         }
         else{
-            click_chatter("Something else");
+            click_chatter("Session already active...");
         }
 
     }
