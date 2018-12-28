@@ -1,2 +1,10 @@
-
+scripts/test.click
 *.pcap
+
+# Ignore workflow Robbe
+lessons/
+click-master/
+click-reference/
+scripts/RobbeInstall.sh
+scripts/RunTest.sh
+scripts/robbeTest.click
