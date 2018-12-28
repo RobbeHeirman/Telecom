@@ -16,10 +16,10 @@
 //	-> ToDump(push.pcap)
 //	-> Discard;
 
-ipencap1::IPEncap(46, 2.2.2.2, 1.1.1.1);
+ipencap1::IPEncap(46, 8.7.6.5, 4.3.2.1);
 host1::RSVPHost(ipencap1);
 
-ipencap2::IPEncap(46, 1.1.1.1, 2.2.2.2);
+ipencap2::IPEncap(46, 1.2.3.4, 5.6.7.8);
 host2::RSVPHost(ipencap2);
 
 host1

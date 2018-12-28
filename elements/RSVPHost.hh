@@ -2,7 +2,7 @@
 #ifndef CLICK_RSVPHOST_HH
 #define CLICK_RSVPHOST_HH
 
-#include "../ip/ipencap.hh"
+#include "../../ip/ipencap.hh"
 #include "RSVPStructs.hh"
 
 #include <string.h>
