@@ -45,6 +45,8 @@ void RSVPNode::push(int port, Packet* p){
                     uint64_t byte_session = this->session_to_bit(session);
                     click_chatter(String(byte_session).c_str());
 
+
+
                     break;
                 }
                 case RSVPObject::Class::Hop : {
@@ -57,6 +59,8 @@ void RSVPNode::push(int port, Packet* p){
 
                     break;
                 }
+
+
                 default:
                     break;
             }
@@ -77,7 +81,7 @@ uint64_t RSVPNode::session_to_bit(RSVPSession* session){
 
     uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
     uint8_t proto = session->proto;
-    uint8_t flags = (uint8_t) session->flags;
+    uint8_t flags = (uint8_t) session->flags; // TODO: do we care about proto and flags? I think so...
     uint16_t port = session->dest_port;
 
     uint16_t temp_step1 = ((uint16_t)proto << 8)| flags;

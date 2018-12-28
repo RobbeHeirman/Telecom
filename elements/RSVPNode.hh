@@ -9,12 +9,21 @@
 #include <click/element.hh>
 #include <click/glue.hh>
 
-#include <click/hashmap.hh>
+#include <click/hashtable.hh>
 #include <click/args.hh>
 
 #include "RSVPStructs.hh"
 
+struct PathState{
+
+    IPAddress prev_hop; // prev_hop node
+
+};
+
+
+
 CLICK_DECLS
+typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
 
 class RSVPNode: public Element {
 
@@ -53,14 +62,7 @@ private:
      * PathState is a struct for bookkeeping of the RSVP path sof state.
      * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message
      */
-    struct PathState{
-
-        IPAddress prev_hop; // prev_hop node
-
-    };
-    // Bookkeeping for pathstate <Session ID, IP>
-    HashMap<unsigned int, PathState> m_path_state;
-
+    PathStateMap m_path_state;
 
 };
 
