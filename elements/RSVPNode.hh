@@ -8,8 +8,10 @@
 
 #include <click/element.hh>
 #include <click/glue.hh>
-#include <click/standard/addressinfo.hh>
+
 #include <click/hashmap.hh>
+#include <click/args.hh>
+
 #include "RSVPStructs.hh"
 
 CLICK_DECLS
@@ -32,6 +34,11 @@ public:
 
 
 private:
+
+    uint64_t session_to_bit(RSVPSession* session);
+    uint64_t sender_template_to_bit(RSVPSenderTemplate* sender_template);
+
+
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
 
