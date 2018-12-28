@@ -32,7 +32,8 @@ void RSVPNode::push(int port, Packet* p){
         RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
 
         // Block of info we need to find
-        unsigned int session;
+        RSVPSession* session = 0;
+        RSVPSenderTemplate* sender = 0;
         IPAddress addr_prev_hop; //the address of the previous hop needed to save the path state
 
         while((const unsigned  char*)object < p->end_data()){
@@ -40,36 +41,45 @@ void RSVPNode::push(int port, Packet* p){
             // We want to handle on the type of object gets trough
             switch (object->class_num){
                 case RSVPObject::Class::Session : {
-
-                    RSVPSession* session = (RSVPSession*) object; // Downcast to RSVPSession object
-                    uint64_t byte_session = this->session_to_bit(session);
-                    click_chatter(String(byte_session).c_str());
-
-
-
+                    if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
+                    session = (RSVPSession*) object; // Downcast to RSVPSession object
+                    object = (RSVPObject*) (session + 1);
                     break;
                 }
                 case RSVPObject::Class::Hop : {
 
-                    click_chatter(String(m_address_info.unparse()).c_str()); // TODO: address needs to be placed at hop
                     RSVPHop *hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
-
                     addr_prev_hop = IPAddress(hop->address);
-                    click_chatter(String(addr_prev_hop.unparse()).c_str());
-
+                    object = (object*)( hop + 1);
                     break;
                 }
 
-
+                case RSVPObject::Class::SenderTemplate : {
+                    click_chatter(String(object->class_num).c_str());
+                    if(sender != 0){click_chatter("More the one sender template");}
+                    sender = (RSVPSenderTemplate*) object;
+                    click_chatter(String(sender->src_port).c_str());
+                    break;
+                }
                 default:
+                    object = (RSVPObject*) (object + 1);
                     break;
             }
 
             // Go to the next RSVPObject
-            object = (RSVPObject*) (object + 1);
+
 
         }
-        click_chatter("I have reached the end");
+
+        uint64_t byte_session = this->session_to_bit(session);
+        uint64_t byte_sender = this->sender_template_to_bit(sender);
+
+        if(m_path_state.find(byte_sender) == m_path_state.end()){
+            click_chatter("Sender should be added");
+        }
+        else{
+            click_chatter("Something else");
+        }
 
     }
     output(port).push(p);
