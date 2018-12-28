@@ -16,9 +16,6 @@ CLICK_DECLS
 
 class RSVPNode: public Element {
 
-    struct PathState{
-
-    };
 
 public:
     /// Constructor destructor
@@ -38,14 +35,24 @@ private:
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
 
+
     // "These Path messages
     // store "path state" in each node along the way. This path state
     // includes at least the unicast IP address of the previous hop node,
     // which is used to route the Resv messages hop-by-hop in the reverse
-    // direction."
+    // direction." -RFC
     //
+    /**
+     * PathState is a struct for bookkeeping of the RSVP path sof state.
+     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message
+     */
+    struct PathState{
+
+        IPAddress prev_hop; // prev_hop node
+
+    };
     // Bookkeeping for pathstate <Session ID, IP>
-    HashMap<unsigned int, IPAddress> m_path_state;
+    HashMap<unsigned int, PathState> m_path_state;
 
 
 };
