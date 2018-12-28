@@ -16,6 +16,10 @@ CLICK_DECLS
 
 class RSVPNode: public Element {
 
+    struct PathState{
+
+    };
+
 public:
     /// Constructor destructor
     RSVPNode()  = default ;
@@ -41,7 +45,7 @@ private:
     // direction."
     //
     // Bookkeeping for pathstate <Session ID, IP>
-    HashMap<int, IPAddress> m_path_state;
+    HashMap<unsigned int, IPAddress> m_path_state;
 
 
 };
