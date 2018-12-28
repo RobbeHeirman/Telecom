@@ -18,10 +18,20 @@ CLICK_DECLS
 // Struct and typedef to keep track of all current sessions
 struct Session
 {
+    // Destination data
     in_addr destination_address;
     uint16_t destination_port;
+
+    // Source data
     in_addr source_address;
     uint16_t source_port;
+
+    // Hop data
+    in_addr hop_address;
+
+    // Timers for sending Path/Resv messages and the local state's lifetime
+    Timer* send;
+    Timer* lifetime;
 };
 typedef HashMap<int, Session> SessionMap;
 
@@ -34,7 +44,7 @@ public:
 
     // Standard click information functions
     const char* class_name() const { return "RSVPHost"; }
-    const char* port_count() const { return "0/1"; }
+    const char* port_count() const { return "0-1/1"; }
     const char* processing() const { return PUSH; }
 
     // Standard click functions
@@ -43,7 +53,7 @@ public:
 
     // Packet generators
     WritablePacket* generate_path(int session_id);
-    WritablePacket* generate_resv(int session_id);
+    WritablePacket* generate_resv(int session_id, bool need_confirm);
     WritablePacket* generate_path_err(int session_id);
     WritablePacket* generate_resv_err(int session_id);
     WritablePacket* generate_path_tear(int session_id);
@@ -51,14 +61,44 @@ public:
     WritablePacket* generate_resv_conf(int session_id);
     static void complete_header(WritablePacket* packet, int size);
 
-    // Timer callback data and function
+    // Packet parsers
+    void parse_path(const unsigned char* message, int size);
+    void parse_resv(const unsigned char* message, int size);
+    void parse_path_err(const unsigned char* message, int size);
+    void parse_resv_err(const unsigned char* message, int size);
+    void parse_path_tear(const unsigned char* message, int size);
+    void parse_resv_tear(const unsigned char* message, int size);
+    void parse_resv_conf(const unsigned char* message, int size);
+
+    // Function that sends an error to the default handler if the condition is true
+    static inline bool check(bool condition, const String& message);
+
 private:
-    struct TimerData
+    // Timer callback data
+    struct PathData
     {
         RSVPHost* host;
         int session_id;
     };
+    struct ResvData
+    {
+        RSVPHost* host;
+        int session_id;
+        bool confirm;
+    };
+    struct ReleaseData
+    {
+        RSVPHost* host;
+        int session_id;
+    };
+
+    // Timer callback functions
     static void push_path(Timer* timer, void* user_data);
+    static void push_resv(Timer* timer, void* user_data);
+    static void release_session(Timer* timer, void* user_data);
+
+    // Function that sets the source and destination address in the IPEncap element
+    void set_ipencap(const in_addr& source, const in_addr& destination);
 
     // Handler functions
 public:
@@ -80,7 +120,7 @@ private:
     IPEncap* m_ipencap;
 
     // The headroom needed for an ether and ip header
-    static constexpr unsigned int s_headroom {sizeof(click_ip) + sizeof(click_ether)};
+    static constexpr unsigned int s_headroom {sizeof(click_ip) + sizeof(click_ether) + 4};
 
     // The refresh value for RSVPTimeValues objects
     static constexpr uint32_t s_refresh {10000};
