@@ -8,12 +8,25 @@
 
 #include <click/element.hh>
 #include <click/glue.hh>
-#include <click/standard/addressinfo.hh>
+
+#include <click/hashtable.hh>
+#include <click/args.hh>
+
 #include "RSVPStructs.hh"
 
+struct PathState{
+
+    IPAddress prev_hop; // prev_hop node
+
+};
+
+
+
 CLICK_DECLS
+typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
 
 class RSVPNode: public Element {
+
 
 public:
     /// Constructor destructor
@@ -30,9 +43,26 @@ public:
 
 
 private:
+
+    uint64_t session_to_bit(RSVPSession* session);
+    uint64_t sender_template_to_bit(RSVPSenderTemplate* sender_template);
+
+
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
 
+
+    // "These Path messages
+    // store "path state" in each node along the way. This path state
+    // includes at least the unicast IP address of the previous hop node,
+    // which is used to route the Resv messages hop-by-hop in the reverse
+    // direction." -RFC
+    //
+    /**
+     * PathState is a struct for bookkeeping of the RSVP path sof state.
+     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message
+     */
+    PathStateMap m_path_state;
 
 };
 
