@@ -22,16 +22,17 @@ else
 fi
 
 
-"""
-Call with following arguments:
-   element_name			one of:		HOST1 | ROUT1 | ROUT2 | HOST2
-   handler_name			example:	session
-   handler_arguments		example:	1, 1.1.1.1, 1
-"""
+# Call with following arguments:
+#    element_name			one of:		HOST1 | ROUT1 | ROUT2 | HOST2
+#    handler_name			example:	session
+#    handler_arguments		example:	1, 1.1.1.1, 1
+
 function rsvp {
 	port=$1_PORT
 	name=$1_NAME
-	echo "\nwrite ${!name}.$2 ${@:3}"
+
+	echo
+	echo "write ${!name}.$2 ${@:3}"
 	(echo "write ${!name}.$2 ${@:3}"; sleep 0.5) | telnet localhost ${!port} >/dev/null
 }
 

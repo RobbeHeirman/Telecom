@@ -59,7 +59,6 @@ public:
     WritablePacket* generate_path_tear(int session_id);
     WritablePacket* generate_resv_tear(int session_id);
     WritablePacket* generate_resv_conf(int session_id);
-    static void complete_header(WritablePacket* packet, int size);
 
     // Packet parsers
     void parse_path(const unsigned char* message, int size);

@@ -213,11 +213,11 @@ Packet* RSVPSource::pull(int) {
 //        return generate_resv_conf();
 //    default:
 //        m_send = ' ';
-//        return nullptr;
+    return nullptr;
 //    }
 }
 
-int RSVPSource::send(const String& config, Element* const element, void* const thunk, ErrorHandler* const errh) {
+int RSVPSource::send(const String& config, Element* const element, void* const, ErrorHandler* const errh) {
 
     auto const source {(RSVPSource*) element};
     Vector<String> config_vector;
