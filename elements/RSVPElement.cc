@@ -72,6 +72,75 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
 
+bool RSVPElement::find_path_tear_ptrs(const Packet *const packet,
+                                      RSVPSession*& session,
+                                      RSVPHop*& hop,
+                                      RSVPSenderTemplate*& sender_template) {
+
+    // Get the first RSVP object right after the header
+    const auto header {(RSVPHeader*) (packet->data())};
+    auto object {(RSVPObject*) (header + 1)};
+
+    // Check for an integrity object
+    if (object->class_num == RSVPObject::Integrity) {
+        const auto integrity {(RSVPIntegrity*) object};
+        object = (RSVPObject*) (integrity + 1);
+    }
+
+    // Make sure all pointers are set to nullptr to avoid reporting false duplicates
+    session = nullptr;
+    hop = nullptr;
+    sender_template = nullptr;
+    RSVPSenderTSpec* sender_tspec {nullptr};
+
+    // Loop until every object has been read
+    while ((uint8_t*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+                // Null objects should be ignored
+                break;
+
+            case RSVPObject::Session:
+                if (check(session, "PATH_TEAR message contains two Session objects")) return false;
+                session = (RSVPSession*) object;
+                break;
+
+            case RSVPObject::Hop:
+                if (check(hop, "PATH_TEAR message contains two Hop objects")) return false;
+                hop = (RSVPHop*) object;
+                break;
+
+            case RSVPObject::SenderTemplate:
+                if (check(sender_template, "PATH_TEAR contains two SenderTemplate objects")) return false;
+                sender_template = (RSVPSenderTemplate*) object;
+                break;
+
+            case RSVPObject::SenderTSpec:
+                // SenderTSpec objects should be ignored by RSVP elements but for completeness we check for duplicates
+                if (check(sender_tspec, "PATH_TEAR contains two SenderTSpec objects")) return false;
+                sender_tspec = (RSVPSenderTSpec*) object;
+                break;
+
+            default:
+                check(true, "PATH_TEAR contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length of the object (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // Make sure all mandatory objects were present in the PATH_TEAR message
+    if (check(session, "PATH_TEAR message is missing a Session object")) return false;
+    if (check(hop, "PATH_TEAR message is missing a Hop object")) return false;
+    if (check(sender_template, "PATH_TEAR message is missing a SenderTemplate object")) return false;
+
+    // All went well
+    return true;
+}
+
 bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
                                       RSVPSession*& session,
                                       RSVPHop*& hop,
