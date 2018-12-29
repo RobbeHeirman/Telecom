@@ -67,8 +67,8 @@ struct FlowDescriptor
  * @class
  * Abstract class for RSVPElements
  */
-class RSVPElement: public Element {
-
+class RSVPElement: public Element
+{
 public:
 
     const char* class_name() const {return "RSVPElement";}
@@ -84,7 +84,18 @@ protected:
                         RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
 
     /**
-     * Helper function that will help us find package ptrs.
+     * Helper function that will help us find package pointers in RESV_TEAR messages
+     * @param packet a pointer to the packet containing the RESV_TEAR message
+     * @return whether all pointers were successfully found
+     */
+    bool find_resv_tear_ptrs(const Packet *const packet,
+                             RSVPSession*& session,
+                             RSVPHop*& hop,
+                             RSVPStyle*& style,
+                             Vector<RSVPFilterSpec*>& filter_specs);
+
+    /**
+     * Helper function that will help us find package pointers in RESV_CONF messages
      * @param packet a pointer to the packet containing the RESV_CONF message
      * @return whether all pointers were successfully found
      */

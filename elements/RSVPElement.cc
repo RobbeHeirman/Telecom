@@ -72,6 +72,107 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
 
+bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
+                                      RSVPSession*& session,
+                                      RSVPHop*& hop,
+                                      RSVPStyle*& style,
+                                      Vector<RSVPFilterSpec*>& filter_specs) {
+
+    // Get the first RSVP object right after the header
+    const auto header {(RSVPHeader*) (packet->data())};
+    auto object {(RSVPObject*) (header + 1)};
+
+    // Check for an integrity object
+    if (object->class_num == RSVPObject::Integrity) {
+        const auto integrity {(RSVPIntegrity*) object};
+        object = (RSVPObject*) (integrity + 1);
+    }
+
+    // Make sure all pointers are set to nullptr to avoid reporting false duplicates
+    session = nullptr;
+    hop = nullptr;
+    RSVPScope* scope {nullptr};
+    style = nullptr;
+    filter_specs.clear();
+
+    // Loop until every object except for the flow descriptor list has been read
+    bool keep_going {true};
+    while (keep_going and (uint8_t*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+                // Null objects should be ignored
+                break;
+
+            case RSVPObject::Session:
+                if (check(session, "RESV_TEAR message contains two Session objects")) return false;
+                session = (RSVPSession*) object;
+                break;
+
+            case RSVPObject::Hop:
+                if (check(hop, "RESV_TEAR message contains two Hop objects")) return false;
+                hop = (RSVPHop*) object;
+                break;
+
+            case RSVPObject::Scope:
+                if (check(scope, "RESV_TEAR message contains two Scope objects")) return false;
+                // Scope objects can be ignored, but for completeness we make sure there are no duplicate Scope objects
+                break;
+
+            case RSVPObject::Style:
+                // The loop can be stopped here as a Style object followed by a descriptor list should always be the
+                //   last part of a RESV_TEAR message
+                keep_going = false;
+                style = (RSVPStyle*) object;
+                break;
+
+            default:
+                check(true, "RESV_TEAR message contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // If keep_going is still true, no Style object has been encountered and we've read the whole packet
+    if (check(keep_going, "RSVP_TEAR message is missing a Style object")) return false;
+
+    // We can continue with the object pointer because we didn't increase it after meeting a FlowSpec object
+    while ((unsigned char*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+            case RSVPObject::FlowSpec:
+                // In case of a RESV_TEAR message, not only Null but also FlowSpec objects can be ignored
+                break;
+
+            case RSVPObject::FilterSpec:
+                filter_specs.push_back((RSVPFilterSpec*) object);
+                break;
+
+            default:
+                // Other class numbers shouldn't appear (at this position) in a RESV_CONF object
+                check(true, "RESV_CONF message flow descriptor list contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // Make sure all mandatory objects were present in the RESV_TEAR message
+    if (check(not session, "RESV_TEAR message is missing a Session object")) return false;
+    if (check(not hop, "RESV_TEAR message is missing a Hop object")) return false;
+    if (check(not style, "RESV_TEAR message is missing a Style object")) return false;
+    if (check(filter_specs.empty(), "RESV_TEAR message is missing a flow descriptor list")) return false;
+
+    // All went well
+    return true;
+}
+
 bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
                                       RSVPSession*& session,
                                       RSVPErrorSpec*& error_spec,
@@ -79,9 +180,9 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
                                       RSVPStyle*& style,
                                       Vector<FlowDescriptor>& flow_descriptor_list) {
 
-    // Assuming the header doesn't contain errors and the message is in fact a RESV_CONF message, get the first object
-    const auto header {(RSVPHeader*) packet->data()};
-    RSVPObject* object {(RSVPObject*) (header + 1)};
+    // Get the first RSVP object right after the header
+    const auto header {(RSVPHeader*) (packet->data())};
+    auto object {(RSVPObject*) (header + 1)};
 
     // Check for an integrity object which must come right after the header if included in the message
     if (object->class_num == RSVPObject::Integrity) {
@@ -96,15 +197,13 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
     style = nullptr;
     flow_descriptor_list.clear();
 
-    // FlowSpec variable to temporarily keep an object before adding it to the flow descriptor list
-    RSVPFlowSpec* flow_spec {nullptr};
-
-    // Loop until the whole packet and every object has been read
-    while ((const unsigned char*) object < packet->end_data()) {
+    // Loop until every object except for the flow descriptor list has been read
+    bool keep_going {true};
+    while (keep_going and (unsigned char*) object < packet->end_data()) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
-                // In case of a Null object, simply ignore the indicated length of the object
+                // Null objects should be ignored
                 break;
 
             case RSVPObject::Session:
@@ -122,22 +221,61 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
                 resv_confirm = (RSVPResvConfirm*) object;
                 break;
 
+            case RSVPObject::Style:
+                // The loop can be stopped here as a Style object followed by a descriptor list should always be the
+                //   last part of a RESV_CONF message
+                keep_going = false;
+                style = (RSVPStyle*) object;
+                return false;
+
             case RSVPObject::FlowSpec:
-                flow_spec = (RSVPFlowSpec*) object;
-                break;
+                check(true, "RESV_CONF message contains a FlowSpec object without a preceding Style object");
+                return false;
 
             case RSVPObject::FilterSpec:
-                if (check(not flow_spec, "RESV_CONF message contains a FilterSpec object before a FlowSpec object"))
-                    return false;
-                flow_descriptor_list.push_back(FlowDescriptor {flow_spec, (RSVPFilterSpec*) object});
-                break;
+                check(true, "RESV_CONF message contains a FilterSpec object without a preceding Style object");
+                return false;
 
             default:
                 // Other class numbers shouldn't appear in a RESV_CONF object
                 check(true, "RESV_CONF message contains an object with an invalid class number");
                 return false;
         }
-        object = (RSVPObject*) ((unsigned char*)(object) + object->length);
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // FlowSpec variable to temporarily keep an object before adding it to the flow descriptor list
+    RSVPFlowSpec* flow_spec {nullptr};
+
+    // We can continue with the object pointer because we didn't increase it after meeting a FlowSpec object
+    while ((unsigned char*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+                break;
+
+            case RSVPObject::FlowSpec:
+                flow_spec = (RSVPFlowSpec*) object;
+                break;
+
+            case RSVPObject::FilterSpec:
+                if (check(not flow_spec, "RESV_CONF message flow descriptor list doesn't start with a FlowSpec object"))
+                    return false;
+                flow_descriptor_list.push_back(FlowDescriptor {flow_spec, (RSVPFilterSpec*) object});
+                break;
+
+            default:
+                // Other class numbers shouldn't appear (at this position) in a RESV_CONF object
+                check(true, "RESV_CONF message flow descriptor list contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
     }
 
     // Make sure all mandatory objects were present in the message
@@ -145,8 +283,8 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
     if (check(not error_spec, "RESV_CONF message is missing an ErrorSpec object")) return false;
     if (check(not resv_confirm, "RESV_CONF message is missing a ResvConfirm object")) return false;
     if (check(not style, "RESV_CONF message is missing a Style object")) return false;
-    if (check(not flow_spec, "RESV_CONF message is missing a flow descriptor")) return false;
-    if (check(flow_descriptor_list.empty(), "RESV_CONF is missing a FilterSpec object")) return false;
+    if (check(not flow_spec, "RESV_CONF message is missing a flow descriptor list")) return false;
+    if (check(flow_descriptor_list.empty(), "RESV_CONF message is missing a FilterSpec object")) return false;
 
     // All went well
     return true;
