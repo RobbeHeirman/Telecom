@@ -98,7 +98,7 @@ private:
 
 public:
     // Handler functions
-    /// session ID <int>, DST <addr>, PORT <port>
+    /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
     static int session(const String& config, Element* element, void*, ErrorHandler* errh);
     /// sender ID <int>, SRC <addr>, PORT <port>
     static int sender(const String& config, Element* element, void*, ErrorHandler* errh);

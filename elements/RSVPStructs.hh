@@ -74,6 +74,7 @@ struct RSVPHeader
 struct RSVPObject
 {
     enum Class : uint8_t {
+        Null            = 0x00,
         Session         = 0x01,
         Hop             = 0x03,
         Integrity       = 0x04,
