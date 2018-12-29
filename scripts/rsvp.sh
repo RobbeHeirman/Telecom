@@ -37,20 +37,10 @@ function rsvp {
 }
 
 
-# Initialise session in host 1 & 2
 rsvp HOST1 session $ID, $DST
 rsvp HOST2 session $ID, $DST
-
-# Start sending PATH messages from host 1
 rsvp HOST1 sender $ID, $SRC
-
-# Confirm the reservation in host 2
 rsvp HOST2 reserve $ID, CONF true
-
-# Wait a short while and release the RSVP connection
-#sleep 5
-# RESV TEAR
 #rsvp HOST2 release $ID
-# PATH TEAR
 #rsvp HOST1 release $ID
 

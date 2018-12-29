@@ -57,9 +57,6 @@ private:
     uint64_t session_to_key(RSVPSession* session);
     uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
 
-    // needs to place his ip address in next hop.
-    IPAddress m_address_info;
-
     /**
      * PathState is a struct for bookkeeping of the RSVP path sof state.
      * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message.

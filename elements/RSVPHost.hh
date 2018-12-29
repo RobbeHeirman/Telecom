@@ -2,7 +2,7 @@
 #ifndef CLICK_RSVPHOST_HH
 #define CLICK_RSVPHOST_HH
 
-#include "../../ip/ipencap.hh"
+#include "RSVPElement.hh"
 #include "RSVPStructs.hh"
 
 #include <string.h>
@@ -10,7 +10,6 @@
 #include <click/timer.hh>
 #include <click/error.hh>
 #include <click/element.hh>
-#include <clicknet/ether.h>
 #include <click/hashmap.hh>
 
 CLICK_DECLS
@@ -25,16 +24,6 @@ struct Flow
     // The timer with which PATH / RESV messages are scheduled
     Timer* send;
 };
-struct FlowID
-{
-    in_addr source_address;
-    uint16_t source_port;
-
-    inline uint64_t to_key() const {
-
-        return *(uint64_t*)(this);
-    }
-};
 typedef HashMap<uint64_t, Flow> FlowMap;
 
 // Struct and typedef to keep track of all current sessions
@@ -47,22 +36,11 @@ struct Session
     // The timer with which the local state's lifetime is measured
     Timer* lifetime;
 };
-struct SessionID
-{
-    in_addr destination_address;
-    uint16_t destination_port;
-    uint8_t proto;
-
-    inline uint64_t to_key() const {
-
-        return *(uint64_t*)(this);
-    }
-};
 typedef HashMap<uint64_t, Session> SessionMap;
 typedef HashMap<int, SessionID> SessionIDMap;
 
 
-class RSVPHost: public Element
+class RSVPHost: public RSVPElement
 {
 public:
     // The constructor and destructor
@@ -81,10 +59,6 @@ public:
     // Packet generators
     WritablePacket* generate_path(const SessionID& session_id, const FlowID& sender_id);
     WritablePacket* generate_resv(const SessionID& session_id, const FlowID& sender_id, bool need_confirm = false);
-    WritablePacket* generate_path_err(const SessionID& session_id, const FlowID& sender_id);
-    WritablePacket* generate_resv_err(const SessionID& session_id, const FlowID& sender_id);
-    WritablePacket* generate_path_tear(const SessionID& session_id, const FlowID& sender_id);
-    WritablePacket* generate_resv_tear(const SessionID& session_id, const FlowID& sender_id);
     WritablePacket* generate_resv_conf(const SessionID& session_id, const FlowID& sender_id);
 
     // Packet parsers
@@ -95,9 +69,6 @@ public:
     void parse_path_tear(const unsigned char* message, int size);
     void parse_resv_tear(const unsigned char* message, int size);
     void parse_resv_conf(const unsigned char* message, int size);
-
-    // Function that sends an error to the default handler if the condition is true
-    static inline bool check(bool condition, const String& message);
 
 private:
     // Timer callback data
@@ -125,16 +96,13 @@ private:
     static void push_resv(Timer* timer, void* user_data);
     static void release_session(Timer* timer, void* user_data);
 
-    // Function that sets the source and destination address in the IPEncap element
-    void set_ipencap(const in_addr& source, const in_addr& destination);
-
 public:
     // Handler functions
     /// session ID <int>, DST <addr>, PORT <port>
     static int session(const String& config, Element* element, void*, ErrorHandler* errh);
     /// sender ID <int>, SRC <addr>, PORT <port>
     static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// reserve ID <int>, CONF <int?>
+    /// reserve ID <int>, CONF <bool>
     static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
     /// release ID <int>
     static int release(const String& config, Element* element, void*, ErrorHandler* errh);
@@ -144,12 +112,6 @@ private:
     // The current sessions
     SessionMap m_sessions;
     SessionIDMap m_session_ids;
-
-    // The IPEncap element that (should) encapsulate any packet sent out by the RSVPHost element
-    IPEncap* m_ipencap;
-
-    // The headroom needed for an ether and ip header
-    static constexpr unsigned int s_headroom {sizeof(click_ip) + sizeof(click_ether) + 4};
 
     // The refresh value for RSVPTimeValues objects
     static constexpr uint32_t s_refresh {10000};
