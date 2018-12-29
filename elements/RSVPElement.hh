@@ -17,7 +17,7 @@ CLICK_DECLS
 
 
 /**
- * Helper struct to store a sender template; similar to RSVPSenderTemplate but without the headers
+ * Struct to store a sender template; similar to RSVPSenderTemplate but without the headers
  */
 struct FlowID
 {
@@ -35,7 +35,7 @@ struct FlowID
 
 
 /**
- * Helper struct to store a session; similar to RSVPSession but without the header
+ * Struct to store a session; similar to RSVPSession but without the header
  */
 struct SessionID
 {
@@ -50,6 +50,16 @@ struct SessionID
 
         return *(uint64_t*)(this);
     }
+};
+
+
+/**
+ * Struct to store a (FF) flow descriptor consisting of a RSVPFlowSpec and RSVPFilterSpec object
+ */
+struct FlowDescriptor
+{
+    RSVPFlowSpec* flow_spec;
+    RSVPFilterSpec* filter_spec;
 };
 
 
@@ -73,6 +83,17 @@ protected:
     void find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate*& sender,
                         RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
 
+    /**
+     * Helper function that will help us find package ptrs.
+     * @param packet a pointer to the packet containing the RESV_CONF message
+     * @return whether all pointers were successfully found
+     */
+    bool find_resv_conf_ptrs(const Packet *const packet,
+                             RSVPSession*& session,
+                             RSVPErrorSpec*& error_spec,
+                             RSVPResvConfirm*& resv_confirm,
+                             RSVPStyle*& style,
+                             Vector<FlowDescriptor>& flow_descriptor_list);
 
     /**
      * Helper function that creates a new PATH_ERR packet
@@ -101,7 +122,6 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_tear(const SessionID& session_id, const FlowID& sender_id);
-
 
     /**
      * Function that sets the source and destination address in the IPEncap element
