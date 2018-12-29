@@ -1,9 +1,10 @@
 #include <click/config.h>
 #include "RSVPNode.hh"
-
+#include <click/args.hh>
 
 CLICK_DECLS
 
+RSVPNode::RSVPNode():RSVPElement() {}
 
 int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
 
@@ -28,100 +29,59 @@ void RSVPNode::push(int port, Packet* p){
 
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
-
-        RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
-
-        // Block of info we need to find
-        RSVPSession* session = 0;
-        RSVPSenderTemplate* sender = 0;
-        IPAddress addr_prev_hop; //the address of the previous hop needed to save the path state
-
-        while((const unsigned  char*)object < p->end_data()){
-
-            // We want to handle on the type of object gets trough
-            switch (object->class_num){
-                case RSVPObject::Integrity: {
-                    click_chatter("INTEGRITY");
-                    RSVPIntegrity* integrity = (RSVPIntegrity*) object;
-                    object = (RSVPObject*) (integrity + 1);
-                    break;
-                }
-                case RSVPObject::Class::Session : {
-                    if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
-                    session = (RSVPSession*) object; // Downcast to RSVPSession object
-                    object = (RSVPObject*) (session + 1);
-                    break;
-                }
-                case RSVPObject::Class::Hop : {
-                    RSVPHop *hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
-                    addr_prev_hop = IPAddress(hop->address);
-                    object = (RSVPObject*)( hop + 1);
-                    break;
-                }
-
-                case RSVPObject::Class::TimeValues : {
-                    RSVPTimeValues* time = (RSVPTimeValues*) object;
-                    object = (RSVPObject*) (time + 1);
-                    break;
-                }
-                case RSVPObject::Class ::PolicyData : {
-                    RSVPPolicyData* pdata = (RSVPPolicyData*) object;
-                    object = (RSVPObject*) (pdata + 1);
-                    break;
-                }
-                case RSVPObject::Class::SenderTemplate : {
-                    click_chatter(String(object->class_num).c_str());
-                    if(sender != 0){click_chatter("More the one sender template");}
-                    sender = (RSVPSenderTemplate*) object;
-                    object = (RSVPObject*) (sender + 1);
-                    break;
-                }
-                case RSVPObject::Class::SenderTSpec : {
-                    RSVPSenderTSpec* tSpec = (RSVPSenderTSpec*) object;
-                    object = (RSVPObject*) (tSpec + 1);
-                    break;
-                }
-                default:
-                    click_chatter("SHOULDN't HAPPEN!");
-                    object = (RSVPObject*) (object + 1);
-                    break;
-            }
-
-            // Go to the next RSVPObject
-
-
-        }
-
-        uint64_t byte_session = this->session_to_bit(session);
-        uint64_t byte_sender = this->sender_template_to_bit(sender);
-
-        PathState state;
-        state.prev_hop = addr_prev_hop;
-
-
-        if(m_path_state.find(byte_sender) == m_path_state.end()){
-            m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
-        }
-
-        if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
-            click_chatter("New session added!");
-            m_path_state[byte_sender][byte_session] = state;
-        }
-        else{
-            click_chatter("Session already active...");
-        }
-
+        handle_path_message(p);
     }
     output(port).push(p);
+}
 
+void RSVPNode::handle_path_message(Packet *p) {
+
+    RSVPHeader* header = (RSVPHeader*) p->data();
+
+    // Block of info we need to find
+    RSVPSession* session{nullptr};
+    RSVPSenderTemplate* sender{nullptr};
+    RSVPHop* hop{nullptr};
+    RSVPSenderTSpec* t_spec{nullptr};
+    Vector<RSVPPolicyData*> policy_data;
+    find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
+
+    // Handling the PathState (separate function)?
+    PathState state;
+    if(!hop == 0)
+        state.prev_hop = hop->address;
+
+    // "State is defined by < session, sender template>"
+    // Converting packets to 64 bit words so we can use those as keys for our HashMap.
+    uint64_t byte_session = this->session_to_key(session);
+    uint64_t byte_sender = this->sender_template_to_key(sender);
+
+    if(m_path_state.find(byte_sender) == m_path_state.end()){
+        m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
+    }
+
+    if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
+        click_chatter("New session added!");
+        m_path_state[byte_sender][byte_session] = state;
+    }
+    else{
+        click_chatter("Session already active..."); // Timers need to be restarted here.
+    }
+
+    //Writing the address in hop for next node
+    hop->address = this->m_address_info;
+
+    // Resetting the checksum because we changed the hop address
+    header->checksum = 0; // checksum assumes the checksum field is 0
+    header->checksum = click_in_cksum(p->data(),p->length());
 
 }
 
-uint64_t RSVPNode::session_to_bit(RSVPSession* session){
+uint64_t RSVPNode::session_to_key(RSVPSession* session){
 
     uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
     uint8_t proto = session->proto;
-    uint8_t flags = (uint8_t) session->flags; // TODO: do we care about proto and flags? I think so...
+    uint8_t flags = 0;// A session is defined by the
     uint16_t port = session->dest_port;
 
     uint16_t temp_step1 = ((uint16_t)proto << 8)| flags;
@@ -129,7 +89,7 @@ uint64_t RSVPNode::session_to_bit(RSVPSession* session){
     return ((uint64_t)ip_addr << 32 | temp_step2);
 }
 
-uint64_t RSVPNode::sender_template_to_bit(RSVPSenderTemplate *sender_template) {
+uint64_t RSVPNode::sender_template_to_key(RSVPSenderTemplate *sender_template) {
 
     uint32_t ip_addr = (uint32_t) sender_template->src_addr.s_addr;
     uint16_t unused = 0;
