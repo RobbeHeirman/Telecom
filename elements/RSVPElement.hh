@@ -5,7 +5,7 @@
 #ifndef TELECOM_RSVPELEMENT_H
 #define TELECOM_RSVPELEMENT_H
 
-#include "../../ip/ipencap.hh"
+#include "../ip/ipencap.hh"
 #include <clicknet/ether.h>
 #include <click/element.hh>
 #include <click/vector.hh>

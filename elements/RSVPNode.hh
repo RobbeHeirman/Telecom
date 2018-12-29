@@ -31,7 +31,7 @@ public:
     const char* port_count() const {return PORTS_1_1;} // Takes a rsvp modes and handles accordingly and outputs again 1/1
     const char* processing() const {return PUSH;}
 
-    int configure(Vector<String>& config, ErrorHandler* errh);
+    //int configure(Vector<String>& config, ErrorHandler* errh);
 
     /**
      *
