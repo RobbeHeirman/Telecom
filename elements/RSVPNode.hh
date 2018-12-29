@@ -45,6 +45,12 @@ public:
 private:
 
     /**
+     * Wille handle accordingly if a message is a path message.
+     * @param p
+     */
+    void handle_path_message(Packet* p);
+
+    /**
      * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
      * bookkeeping.
      */

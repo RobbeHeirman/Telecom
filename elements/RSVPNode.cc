@@ -29,48 +29,51 @@ void RSVPNode::push(int port, Packet* p){
 
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
+        handle_path_message(p);
+    }
+    output(port).push(p);
+}
 
-        RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
+void RSVPNode::handle_path_message(Packet *p) {
 
-        // Block of info we need to find
-        RSVPSession* session{nullptr};
-        RSVPSenderTemplate* sender{nullptr};
-        RSVPHop* hop{nullptr};
-        RSVPSenderTSpec* t_spec{nullptr};
-        Vector<RSVPPolicyData*> policy_data;
-        find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
+    RSVPHeader* header = (RSVPHeader*) p->data();
 
-        // Handling the PathState (separate function)?
-        PathState state;
-        if(!hop == 0)
+    // Block of info we need to find
+    RSVPSession* session{nullptr};
+    RSVPSenderTemplate* sender{nullptr};
+    RSVPHop* hop{nullptr};
+    RSVPSenderTSpec* t_spec{nullptr};
+    Vector<RSVPPolicyData*> policy_data;
+    find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
+
+    // Handling the PathState (separate function)?
+    PathState state;
+    if(!hop == 0)
         state.prev_hop = hop->address;
 
-        // "State is defined by < session, sender template>"
-        // Converting packets to 64 bit words so we can use those as keys for our HashMap.
-        uint64_t byte_session = this->session_to_key(session);
-        uint64_t byte_sender = this->sender_template_to_key(sender);
+    // "State is defined by < session, sender template>"
+    // Converting packets to 64 bit words so we can use those as keys for our HashMap.
+    uint64_t byte_session = this->session_to_key(session);
+    uint64_t byte_sender = this->sender_template_to_key(sender);
 
-        if(m_path_state.find(byte_sender) == m_path_state.end()){
-            m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
-        }
-
-        if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
-            click_chatter("New session added!");
-            m_path_state[byte_sender][byte_session] = state;
-        }
-        else{
-            click_chatter("Session already active..."); // Timers need to be restarted here.
-        }
-
-        //Writing the address in hop for next node
-        hop->address = this->m_address_info;
-
-        // Resetting the checksum because we changed the hop address
-        header->checksum = 0; // checksum assumes the checksum field is 0
-        header->checksum = click_in_cksum(p->data(),p->length());
-        output(port).push(p);
-
+    if(m_path_state.find(byte_sender) == m_path_state.end()){
+        m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
+
+    if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
+        click_chatter("New session added!");
+        m_path_state[byte_sender][byte_session] = state;
+    }
+    else{
+        click_chatter("Session already active..."); // Timers need to be restarted here.
+    }
+
+    //Writing the address in hop for next node
+    hop->address = this->m_address_info;
+
+    // Resetting the checksum because we changed the hop address
+    header->checksum = 0; // checksum assumes the checksum field is 0
+    header->checksum = click_in_cksum(p->data(),p->length());
 
 }
 

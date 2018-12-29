@@ -12,7 +12,7 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     // Main object to iterate over our package objects
     RSVPHeader* header = (RSVPHeader*) p->data();
     RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
-
+    RSVPTimeValues* time;
     while((const unsigned  char*)object < p->end_data()){
         // We want to handle on the type of object gets trough
         switch (object->class_num){
@@ -36,7 +36,7 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
             }
 
             case RSVPObject::Class::TimeValues : {
-                auto* time = (RSVPTimeValues*) object;
+                time = (RSVPTimeValues*) object;
                 object = (RSVPObject*) (time + 1);
                 break;
             }
