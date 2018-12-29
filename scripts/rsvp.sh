@@ -33,7 +33,7 @@ function rsvp {
 
 	echo
 	echo "write ${!name}.$2 ${@:3}"
-	(echo "write ${!name}.$2 ${@:3}"; sleep 0.5) | telnet localhost ${!port} >/dev/null
+	(echo "write ${!name}.$2 ${@:3}"; sleep 0.5) | telnet localhost ${!port} #>/dev/null
 }
 
 

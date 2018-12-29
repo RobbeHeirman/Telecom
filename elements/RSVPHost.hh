@@ -32,14 +32,7 @@ struct FlowID
 
     inline uint64_t to_key() const {
 
-        return (uint64_t)source_address.s_addr << 32 | (uint64_t)source_port;
-    }
-    inline FlowID from_key(const uint64_t key) {
-
-        const auto data {(uint8_t*) &key};
-        source_address = in_addr {*(uint32_t*)(data)};
-        source_port = *(uint16_t*)(data + 4);
-        return *this;
+        return *(uint64_t*)(this);
     }
 };
 typedef HashMap<uint64_t, Flow> FlowMap;
@@ -62,16 +55,7 @@ struct SessionID
 
     inline uint64_t to_key() const {
 
-        const uint32_t temp {(uint32_t)destination_port << 16 | (uint32_t)proto};
-        return (uint64_t)destination_address.s_addr << 32 | (uint64_t)temp;
-    }
-    inline SessionID from_key(const uint64_t key) {
-
-        const auto data {(uint8_t*) &key};
-        destination_address = in_addr {*(uint32_t*)(data)};
-        destination_port = *(uint16_t*)(data + 4);
-        proto = *(data + 6);
-        return *this;
+        return *(uint64_t*)(this);
     }
 };
 typedef HashMap<uint64_t, Session> SessionMap;
