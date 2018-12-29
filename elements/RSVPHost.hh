@@ -15,25 +15,52 @@
 
 CLICK_DECLS
 
-// Struct and typedef to keep track of all current sessions
-struct Session
-{
-    // Destination data
-    in_addr destination_address;
-    uint16_t destination_port;
 
-    // Source data
+// Structs and typdef to keep track of the senders of a certain session
+struct Flow
+{
+    // The address of the previous/next node
+    in_addr hop_address;
+
+    // The timer with which PATH / RESV messages are scheduled
+    Timer* send;
+};
+struct FlowID
+{
     in_addr source_address;
     uint16_t source_port;
 
-    // Hop data
-    in_addr hop_address;
+    inline uint64_t to_key() const {
 
-    // Timers for sending Path/Resv messages and the local state's lifetime
-    Timer* send;
+        return *(uint64_t*)(this);
+    }
+};
+typedef HashMap<uint64_t, Flow> FlowMap;
+
+// Struct and typedef to keep track of all current sessions
+struct Session
+{
+    // The session's senders and receivers
+    FlowMap senders;
+    FlowMap receivers;
+
+    // The timer with which the local state's lifetime is measured
     Timer* lifetime;
 };
-typedef HashMap<int, Session> SessionMap;
+struct SessionID
+{
+    in_addr destination_address;
+    uint16_t destination_port;
+    uint8_t proto;
+
+    inline uint64_t to_key() const {
+
+        return *(uint64_t*)(this);
+    }
+};
+typedef HashMap<uint64_t, Session> SessionMap;
+typedef HashMap<int, SessionID> SessionIDMap;
+
 
 class RSVPHost: public Element
 {
@@ -52,13 +79,13 @@ public:
     void push(int, Packet*);
 
     // Packet generators
-    WritablePacket* generate_path(int session_id);
-    WritablePacket* generate_resv(int session_id, bool need_confirm);
-    WritablePacket* generate_path_err(int session_id);
-    WritablePacket* generate_resv_err(int session_id);
-    WritablePacket* generate_path_tear(int session_id);
-    WritablePacket* generate_resv_tear(int session_id);
-    WritablePacket* generate_resv_conf(int session_id);
+    WritablePacket* generate_path(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv(const SessionID& session_id, const FlowID& sender_id, bool need_confirm = false);
+    WritablePacket* generate_path_err(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv_err(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_path_tear(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv_tear(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv_conf(const SessionID& session_id, const FlowID& sender_id);
 
     // Packet parsers
     void parse_path(const unsigned char* message, int size);
@@ -77,18 +104,20 @@ private:
     struct PathData
     {
         RSVPHost* host;
-        int session_id;
+        SessionID session_id;
+        FlowID sender_id;
     };
     struct ResvData
     {
         RSVPHost* host;
-        int session_id;
+        SessionID session_id;
+        FlowID sender_id;
         bool confirm;
     };
     struct ReleaseData
     {
         RSVPHost* host;
-        int session_id;
+        SessionID session_id;
     };
 
     // Timer callback functions
@@ -99,8 +128,8 @@ private:
     // Function that sets the source and destination address in the IPEncap element
     void set_ipencap(const in_addr& source, const in_addr& destination);
 
-    // Handler functions
 public:
+    // Handler functions
     /// session ID <int>, DST <addr>, PORT <port>
     static int session(const String& config, Element* element, void*, ErrorHandler* errh);
     /// sender ID <int>, SRC <addr>, PORT <port>
@@ -113,7 +142,8 @@ public:
 
 private:
     // The current sessions
-    HashMap<int, Session> m_sessions;
+    SessionMap m_sessions;
+    SessionIDMap m_session_ids;
 
     // The IPEncap element that (should) encapsulate any packet sent out by the RSVPHost element
     IPEncap* m_ipencap;
@@ -131,6 +161,7 @@ private:
     static constexpr uint32_t s_min_unit {100};
     static constexpr uint32_t s_max_size {1500};
 };
+
 
 CLICK_ENDDECLS
 
