@@ -13,7 +13,6 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     // Main object to iterate over our package objects
     RSVPHeader* header = (RSVPHeader*) p->data();
     RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
-    RSVPTimeValues* time;
     while((const unsigned  char*)object < p->end_data()){
         // We want to handle on the type of object gets trough
         switch (object->class_num){
@@ -37,7 +36,7 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
             }
 
             case RSVPObject::Class::TimeValues : {
-                time = (RSVPTimeValues*) object;
+                auto time = (RSVPTimeValues*) object;
                 object = (RSVPObject*) (time + 1);
                 break;
             }
@@ -71,6 +70,76 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not sender, "RSVPHost received Path message without SenderTemplate object")) return;
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
+
+void find_resv_ptrs(const Packet * const packet, RSVPSession*& session, RSVPHop*& hop, RSVPResvConfirm*& res_confirm,
+        RSVPStyle*& style, Vector<FlowDescriptor>){
+
+    // Main object to iterate over our package objects
+    RSVPHeader* header = (RSVPHeader*) p->data();
+    RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
+    RSVPTimeValues* time;
+    while((const unsigned  char*)object < p->end_data()){
+        // We want to handle on the type of object gets trough
+        switch (object->class_num){
+            case RSVPObject::Integrity: {
+                click_chatter("INTEGRITY is ignored");
+                auto integrity = (RSVPIntegrity*) (object);
+                object = (RSVPObject*) (integrity + 1);
+                break;
+            }
+            case RSVPObject::Class::Session : {
+                if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
+                session = (RSVPSession*) object; // Downcast to RSVPSession object
+                object = (RSVPObject*) (session + 1);
+                break;
+            }
+            case RSVPObject::Class::Hop : {
+                if(hop != 0){click_chatter("More then one hop element");}
+                hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
+                object = (RSVPObject*)( hop + 1);
+                break;
+            }
+
+            case RSVPObject::Class::TimeValues : {
+                time = (RSVPTimeValues*) object;
+                object = (RSVPObject*) (time + 1);
+                break;
+            }
+            case RSVPObject::Class::ResvConfirm : {
+                res_confirm = (RSVPResvConfirm*) object;
+                object = (RSVPObject*) (time + 1);
+                break;
+            }
+
+            case RSVPObject::Class::Scope : {
+                auto scope = (RSVPScope*) object;
+                object = (RSVPObject*) (object + 1);
+                break;
+            }
+            case RSVPObject::Class ::PolicyData : {
+                RSVPPolicyData* p_data = (RSVPPolicyData*) object;
+                policy_data.push_back(p_data);
+                object = (RSVPObject*) (p_data + 1);
+                break;
+            }
+            case RSVPObject::Class::FlowSpec : {
+                sender = (RSVPSenderTemplate*) object;
+                object = (RSVPObject*) (sender + 1);
+                break;
+            }
+            case RSVPObject::Class::SenderTSpec : {
+                tspec = (RSVPSenderTSpec*) object;
+                object = (RSVPObject*) (tspec + 1);
+                break;
+            }
+            default:
+                click_chatter("SHOULDN't HAPPEN!");
+                object = (RSVPObject*) (object + 1);
+                break;
+        }
+    }
+}
+
 
 bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
                                       RSVPSession*& session,

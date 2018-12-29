@@ -34,9 +34,11 @@ struct FlowID
 };
 
 
+
 /**
  * Struct to store a session; similar to RSVPSession but without the header
  */
+
 struct SessionID
 {
     in_addr destination_address;
@@ -51,6 +53,7 @@ struct SessionID
         return *(uint64_t*)(this);
     }
 };
+
 
 
 /**
@@ -82,6 +85,10 @@ protected:
      */
     void find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate*& sender,
                         RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
+
+
+    void find_resv_ptrs(const Packet * const packet, RSVPSession*& session, RSVPHop*& hop, RSVPResvConfirm*& res_confirm,
+            RSVPStyle*& style, Vector<FlowDescriptor>);
 
     /**
      * Helper function that will help us find package ptrs.
