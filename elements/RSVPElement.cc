@@ -1,13 +1,13 @@
-//
-// Created by robbe on 29/12/18.
-//
+#include <click/config.h>
+#include "RSVPElement.hh"
+#include <click/glue.hh>
+#include <arpa/inet.h>
 
-#include "RSVPElement.h"
 
 CLICK_DECLS
 
-void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate* sender,
-                    RSVPSenderTSpec* tspec, Vector<RSVPPolicyData*>& policy_data){
+void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate*& sender,
+                    RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data){
 
     // Main object to iterate over our package objects
     RSVPHeader* header = (RSVPHeader*) p->data();
@@ -18,6 +18,7 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
         switch (object->class_num){
             case RSVPObject::Integrity: {
                 click_chatter("INTEGRITY is ignored");
+                auto integrity = (RSVPIntegrity*) (object);
                 object = (RSVPObject*) (integrity + 1);
                 break;
             }
@@ -35,13 +36,14 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
             }
 
             case RSVPObject::Class::TimeValues : {
+                auto* time = (RSVPTimeValues*) object;
                 object = (RSVPObject*) (time + 1);
                 break;
             }
             case RSVPObject::Class ::PolicyData : {
                 RSVPPolicyData* p_data = (RSVPPolicyData*) object;
                 policy_data.push_back(p_data);
-                object = (RSVPObject*) (pdata + 1);
+                object = (RSVPObject*) (p_data + 1);
                 break;
             }
             case RSVPObject::Class::SenderTemplate : {
@@ -51,8 +53,8 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
                 break;
             }
             case RSVPObject::Class::SenderTSpec : {
-                tSpec = (RSVPSenderTSpec*) object;
-                object = (RSVPObject*) (tSpec + 1);
+                tspec = (RSVPSenderTSpec*) object;
+                object = (RSVPObject*) (tspec + 1);
                 break;
             }
             default:
@@ -64,13 +66,19 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
 
     if (check(not session, "RSVPHost received Path message without session object")) return;
     if (check(not hop, "RSVPHost received Path message without hop object")) return;
-    if (check(not time_values, "RSVPHost received Path message without time values object")) return;
+    if (check(not time, "RSVPHost received Path message without time values object")) return;
     if (check(not sender, "RSVPHost received Path message without SenderTemplate object")) return;
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
-
-
 }
 
+bool RSVPElement::check(const bool condition, const String& message) {
+
+    if (condition) {
+        ErrorHandler::default_handler()->error(message.c_str());
+    }
+    return condition;
+}
 
 CLICK_ENDDECLS
+
 EXPORT_ELEMENT(RSVPElement)

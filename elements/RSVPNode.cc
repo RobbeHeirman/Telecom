@@ -1,12 +1,10 @@
 #include <click/config.h>
 #include "RSVPNode.hh"
-
 #include <click/args.hh>
-
-
 
 CLICK_DECLS
 
+RSVPNode::RSVPNode():RSVPElement() {}
 
 int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
 
@@ -39,56 +37,8 @@ void RSVPNode::push(int port, Packet* p){
         RSVPSenderTemplate* sender{nullptr};
         RSVPHop* hop{nullptr};
         RSVPSenderTSpec* t_spec{nullptr};
-
-        while((const unsigned  char*)object < p->end_data()){
-
-            // We want to handle on the type of object gets trough
-            switch (object->class_num){
-                case RSVPObject::Integrity: {
-                    click_chatter("INTEGRITY");
-                    RSVPIntegrity* integrity = (RSVPIntegrity*) object;
-                    object = (RSVPObject*) (integrity + 1);
-                    break;
-                }
-                case RSVPObject::Class::Session : {
-                    if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
-                    session = (RSVPSession*) object; // Downcast to RSVPSession object
-                    object = (RSVPObject*) (session + 1);
-                    break;
-                }
-                case RSVPObject::Class::Hop : {
-                    hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
-                    object = (RSVPObject*)( hop + 1);
-                    break;
-                }
-
-                case RSVPObject::Class::TimeValues : {
-                    RSVPTimeValues* time = (RSVPTimeValues*) object;
-                    object = (RSVPObject*) (time + 1);
-                    break;
-                }
-                case RSVPObject::Class ::PolicyData : {
-                    RSVPPolicyData* pdata = (RSVPPolicyData*) object;
-                    object = (RSVPObject*) (pdata + 1);
-                    break;
-                }
-                case RSVPObject::Class::SenderTemplate : {
-                    if(sender != 0){click_chatter("More the one sender template");}
-                    sender = (RSVPSenderTemplate*) object;
-                    object = (RSVPObject*) (sender + 1);
-                    break;
-                }
-                case RSVPObject::Class::SenderTSpec : {
-                    RSVPSenderTSpec* tSpec = (RSVPSenderTSpec*) object;
-                    object = (RSVPObject*) (tSpec + 1);
-                    break;
-                }
-                default:
-                    click_chatter("SHOULDN't HAPPEN!");
-                    object = (RSVPObject*) (object + 1);
-                    break;
-            }
-        }
+        Vector<RSVPPolicyData*> policy_data;
+        find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
 
         // Handling the PathState (separate function)?
         PathState state;

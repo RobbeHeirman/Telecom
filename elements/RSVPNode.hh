@@ -6,10 +6,9 @@
 #ifndef TELECOM_RSVPNODE_H
 #define TELECOM_RSVPNODE_H
 
-#include <click/element.hh>
-#include <click/hashtable.hh>
 
-#include "RSVPElement.h"
+#include <click/hashtable.hh>
+#include "RSVPElement.hh"
 
 
 CLICK_DECLS
@@ -18,12 +17,13 @@ CLICK_DECLS
  * @brief: Represents a Node capable of handling RSVP messages. Will handle according the received message
  * see rsvp messages.
  */
+
 class RSVPNode: public RSVPElement {
 
 
 public:
     /// Constructor destructor
-    RSVPNode()  = default ;
+    RSVPNode();
     ~RSVPNode() = default;
 
     /// Standard click functions
