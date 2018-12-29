@@ -58,10 +58,9 @@ void RSVPNode::handle_path_message(Packet *p) {
 
     if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
 
-
         PathState state;
         state.prev_hop = hop->address;
-        for(unsigned int i = 0; i < policy_data.size()){
+        for(int i = 0; i < policy_data.size() ; i++){
             state.policy_data.push_back(*policy_data[i]);
         }
         state.t_spec = *t_spec;
@@ -86,7 +85,7 @@ uint64_t RSVPNode::session_to_key(RSVPSession* session){
 
     uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
     uint8_t proto = session->proto;
-    uint8_t flags = 0;// A session is defined by the
+    uint8_t flags = session->flags;// A session is defined by the
     uint16_t port = session->dest_port;
 
     uint16_t temp_step1 = ((uint16_t)proto << 8)| flags;

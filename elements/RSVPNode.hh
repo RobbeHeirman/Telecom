@@ -67,7 +67,7 @@ private:
     struct PathState{
 
         IPAddress prev_hop; // prev_hop node
-        vector<RSVPPolicyData> policy_data; // Potential policy data
+        Vector<RSVPPolicyData> policy_data; // Potential policy data
         RSVPSenderTSpec t_spec; // TSpec element
 
     };
