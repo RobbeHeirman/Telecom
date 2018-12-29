@@ -7,25 +7,18 @@
 #define TELECOM_RSVPNODE_H
 
 #include <click/element.hh>
-#include <click/glue.hh>
-
 #include <click/hashtable.hh>
-#include <click/args.hh>
 
-#include "RSVPStructs.hh"
-
-struct PathState{
-
-    IPAddress prev_hop; // prev_hop node
-
-};
-
+#include "RSVPElement.h"
 
 
 CLICK_DECLS
-typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
-
-class RSVPNode: public Element {
+/**
+ * @class
+ * @brief: Represents a Node capable of handling RSVP messages. Will handle according the received message
+ * see rsvp messages.
+ */
+class RSVPNode: public RSVPElement {
 
 
 public:
@@ -39,29 +32,40 @@ public:
     const char* processing() const {return PUSH;}
 
     int configure(Vector<String>& config, ErrorHandler* errh);
+
+    /**
+     *
+     * @param port Package will come in. This is the CLICK ELEMENT port. This element has 0 in and outgoing port so 0
+     * @param p the packet comming in
+     * @brief: Handles a incomming RSVP message at the node. CURRENTLY: Path
+     */
     void push(int port, Packet* p);
 
 
 private:
 
-    uint64_t session_to_bit(RSVPSession* session);
-    uint64_t sender_template_to_bit(RSVPSenderTemplate* sender_template);
-
+    /**
+     * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
+     * bookkeeping.
+     */
+    uint64_t session_to_key(RSVPSession* session);
+    uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
 
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
 
-
-    // "These Path messages
-    // store "path state" in each node along the way. This path state
-    // includes at least the unicast IP address of the previous hop node,
-    // which is used to route the Resv messages hop-by-hop in the reverse
-    // direction." -RFC
-    //
     /**
      * PathState is a struct for bookkeeping of the RSVP path sof state.
-     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message
+     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message.
      */
+    struct PathState{
+
+        IPAddress prev_hop; // prev_hop node
+
+
+    };
+
+    typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
     PathStateMap m_path_state;
 
 };
