@@ -71,14 +71,128 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
 
-bool RSVPElement::check(const bool condition, const String& message) {
+WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const FlowID& sender_id) {
 
-    if (condition) {
-        ErrorHandler::default_handler()->error(message.c_str());
-    }
-    return condition;
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPErrorSpec)
+                           + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader        ::write(pos_ptr, RSVPHeader::PathErr);
+    RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+    RSVPSenderTSpec   ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);
+    // TODO copy template and tspec from PATH message
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader::complete(packet, size);
+    return packet;
 }
 
-CLICK_ENDDECLS
+WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const FlowID& sender_id) {
 
+    // Create a new packet
+    const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
+                          + sizeof(RSVPStyle)  + sizeof(RSVPFlowSpec) + sizeof(RSVPFilterSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader    ::write(pos_ptr, RSVPHeader::PathErr);
+    RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPHop       ::write(pos_ptr, sender_id.source_address);
+    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPStyle     ::write(pos_ptr);
+    // TODO copy style from RESV message
+    RSVPFlowSpec  ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);    // TODO
+    RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader   ::complete(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const FlowID& sender_id) {
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPHop)
+                           + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader        ::write(pos_ptr, RSVPHeader::PathTear);
+    RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPHop           ::write(pos_ptr, m_address_info.in_addr());
+    RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+    RSVPSenderTSpec   ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);    // TODO
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader        ::complete(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const FlowID& sender_id) {
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession)    + sizeof(RSVPHop)
+                           + sizeof(RSVPStyle)  + sizeof(RSVPFilterSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvTear);
+    RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPHop       ::write(pos_ptr, m_address_info.in_addr());
+    RSVPStyle     ::write(pos_ptr);
+    RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader    ::complete(packet, size);
+    return packet;
+}
+
+void RSVPElement::set_ipencap(const in_addr& source, const in_addr& destination) {
+
+    // Make sure m_ipencap actually exists
+    assert(m_ipencap);
+
+    // Prepare a buffer and a vector to hold the configuration and result (resp.)
+    char buf[INET_ADDRSTRLEN] {};
+    Vector<String> config {};
+
+    // Convert and add the source and destination address to the configuration; make sure the protocol is set to RSVP
+    config.push_back(String("46"));                                                     // PROTO (46 = RSVP)
+    config.push_back(String(inet_ntop(AF_INET, &source, buf, INET_ADDRSTRLEN)));        // SRC
+    config.push_back(String(inet_ntop(AF_INET, &destination, buf, INET_ADDRSTRLEN)));   // DST
+
+    // Configure the IPEncap element with the configuration
+    m_ipencap->live_reconfigure(config, ErrorHandler::default_handler());
+}
+
+
+CLICK_ENDDECLS
 EXPORT_ELEMENT(RSVPElement)

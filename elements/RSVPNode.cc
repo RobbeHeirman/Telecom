@@ -6,19 +6,27 @@ CLICK_DECLS
 
 RSVPNode::RSVPNode():RSVPElement() {}
 
-int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
+/*int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
+
+
+    Args args(config, this, errh);
+
 
     // Parse the config vector
-    int result {Args(config, this, errh)
-                        .read_mp("AddressInfo", m_address_info)
-                        .complete()};
-
+    int result {args.read_mp("AddressInfo", m_address_info).consume()};
+    click_chatter(String(m_address_info.unparse()).c_str());
     // Check whether the parse failed
     if (result < 0) {
         return -1;
     }
+
+    while(!args.empty()){
+        IPAddress inf;
+        result = args.read_p("AddressInfo", inf).consume();
+        click_chatter(String(inf.unparse()).c_str());
+    }
     return 0;
-}
+} */
 
 
 void RSVPNode::push(int port, Packet* p){
@@ -35,8 +43,6 @@ void RSVPNode::push(int port, Packet* p){
 }
 
 void RSVPNode::handle_path_message(Packet *p) {
-
-    RSVPHeader* header = (RSVPHeader*) p->data();
 
     // Block of info we need to find
     RSVPSession* session{nullptr};
@@ -71,14 +77,6 @@ void RSVPNode::handle_path_message(Packet *p) {
     else{
         click_chatter("Session already active..."); // Timers need to be restarted here.
     }
-
-    //Writing the address in hop for next node
-    hop->address = this->m_address_info;
-
-    // Resetting the checksum because we changed the hop address
-    header->checksum = 0; // checksum assumes the checksum field is 0
-    header->checksum = click_in_cksum(p->data(),p->length());
-
 }
 
 uint64_t RSVPNode::session_to_key(RSVPSession* session){
