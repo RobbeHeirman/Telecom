@@ -46,10 +46,6 @@ void RSVPNode::handle_path_message(Packet *p) {
     Vector<RSVPPolicyData*> policy_data;
     find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
 
-    // Handling the PathState (separate function)?
-    PathState state;
-    if(!hop == 0)
-        state.prev_hop = hop->address;
 
     // "State is defined by < session, sender template>"
     // Converting packets to 64 bit words so we can use those as keys for our HashMap.
@@ -61,8 +57,16 @@ void RSVPNode::handle_path_message(Packet *p) {
     }
 
     if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
-        click_chatter("New session added!");
+
+        PathState state;
+        state.prev_hop = hop->address;
+        for(int i = 0; i < policy_data.size() ; i++){
+            state.policy_data.push_back(*policy_data[i]);
+        }
+        state.t_spec = *t_spec;
+
         m_path_state[byte_sender][byte_session] = state;
+        click_chatter("New session added!");
     }
     else{
         click_chatter("Session already active..."); // Timers need to be restarted here.
@@ -81,7 +85,7 @@ uint64_t RSVPNode::session_to_key(RSVPSession* session){
 
     uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
     uint8_t proto = session->proto;
-    uint8_t flags = 0;// A session is defined by the
+    uint8_t flags = session->flags;// A session is defined by the
     uint16_t port = session->dest_port;
 
     uint16_t temp_step1 = ((uint16_t)proto << 8)| flags;
