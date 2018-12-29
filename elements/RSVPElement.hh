@@ -84,8 +84,24 @@ protected:
                         RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
 
     /**
-     * Helper function that will help us find object pointers in PATH_TEAR messages
-     * @param packet a pointer to the packet containing the PATH_TEAT message
+     * Helper function that will help us find objects in RESV_ERR messages
+     * @param packet a pointer to the packet containing the RESV_ERR message
+     * @return whether all objects were successfully found
+     */
+    bool find_resv_err_ptrs(const Packet *const packet,
+                            RSVPSession*& session,
+                            RSVPHop*& hop,
+                            RSVPErrorSpec*& error_spec,
+//                            RSVPScope*& scope,
+                            Vector<RSVPPolicyData*>& policy_data,
+                            RSVPStyle*& style,
+                            FlowDescriptor& flow_descriptor);
+    // RESV_ERR messages only contain one flow_descriptor; in this implementation Scope objects in RESV_ERR messages can
+    //   be ignored
+
+    /**
+     * Helper function that will help us find objects in PATH_TEAR messages
+     * @param packet a pointer to the packet containing the PATH_TEAR message
      * @return whether all objects were successfully found
      */
     bool find_path_tear_ptrs(const Packet *const packet,
@@ -95,7 +111,7 @@ protected:
     // In PATH_TEAR messages sender TSpec objects should be ignored
 
     /**
-     * Helper function that will help us find object pointers in RESV_TEAR messages
+     * Helper function that will help us find objects in RESV_TEAR messages
      * @param packet a pointer to the packet containing the RESV_TEAR message
      * @return whether all objects were successfully found
      */
@@ -107,7 +123,7 @@ protected:
     // In RESV_TEAR messages a Scope object and FlowSpec objects should be ignored
 
     /**
-     * Helper function that will help us find object pointers in RESV_CONF messages
+     * Helper function that will help us find objects in RESV_CONF messages
      * @param packet a pointer to the packet containing the RESV_CONF message
      * @return whether all objects were successfully found
      */

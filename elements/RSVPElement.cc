@@ -72,6 +72,107 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
 
+bool RSVPElement::find_resv_err_ptrs(const Packet *const packet,
+                                     RSVPSession*& session,
+                                     RSVPHop*& hop,
+                                     RSVPErrorSpec*& error_spec,
+//                                     RSVPScope*& scope,
+                                     Vector<RSVPPolicyData*>& policy_data,
+                                     RSVPStyle*& style,
+                                     FlowDescriptor& flow_descriptor) {
+
+    // Get the first RSVP object right after the header
+    const auto header {(RSVPHeader*) (packet->data())};
+    auto object {(RSVPObject*) (header + 1)};
+
+    // Check for an Integrity object
+    if (object->class_num == RSVPObject::Integrity) {
+        const auto integrity {(RSVPIntegrity*) object};
+        object = (RSVPObject*) (integrity + 1);
+    }
+
+    // Make sure the pointers are initialised to nullpointers to avoid reporting false duplicates
+    session = nullptr;
+    hop = nullptr;
+    error_spec = nullptr;
+    RSVPScope* scope {nullptr};
+    policy_data.clear();
+    style = nullptr;
+    flow_descriptor = {nullptr, nullptr};
+
+    // Loop until every object object except for the flow descriptor has been read
+    bool keep_going {true};
+    while (keep_going and (uint8_t*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+                // Null objects should be ignored
+                break;
+
+            case RSVPObject::Session:
+                if (check(session, "RESV_ERR message contains two Session objects")) return false;
+                session = (RSVPSession*) object;
+                break;
+
+            case RSVPObject::Hop:
+                if (check(hop, "RESV_ERR message contains two Hop objects")) return false;
+                hop = (RSVPHop*) object;
+                break;
+
+            case RSVPObject::ErrorSpec:
+                if (check(error_spec, "RESV_ERR message contains two ErrorSpec objects")) return false;
+                error_spec = (RSVPErrorSpec*) object;
+                break;
+
+            case RSVPObject::Scope:
+                if (check(scope, "RESV_ERR message contains two Scope objects")) return false;
+                scope = (RSVPScope*) object;
+                break;
+
+            case RSVPObject::PolicyData:
+                policy_data.push_back((RSVPPolicyData*) object);
+                break;
+
+            case RSVPObject::Style:
+                keep_going = false;
+                style = (RSVPStyle*) object;
+                break;
+
+            default:
+                check(true, "RESV_ERR message contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // TODO skip Null objects?
+
+    // Make sure the next object is a FlowSpec object
+    if (check(object->class_num != RSVPObject::FlowSpec,
+            "RESV_ERR message Style object isn't followed by a FlowSpec object")) return false;
+    flow_descriptor.flow_spec = (RSVPFlowSpec*) (object);
+    object = (RSVPObject*) (flow_descriptor.flow_spec + 1);
+
+    // Make sure the next object is a FilterSpec object
+    if (check(object->class_num != RSVPObject::FilterSpec,
+            "RESV_ERR message FlowSpec isn't followed by a FilterSpec object")) return false;
+    flow_descriptor.filter_spec = (RSVPFilterSpec*) (object);
+
+    // Make sure all mandatory objects were present in the message
+    if (check(not session, "RESV_ERR message is missing a Session object")) return false;
+    if (check(not hop, "RESV_ERR message is missing a Hop object")) return false;
+    if (check(not error_spec, "RESV_ERR message is missing an ErrorSpec object")) return false;
+    if (check(not style, "RESV_ERR message is missing a style object")) return false;
+    if (check(not flow_descriptor.flow_spec, "RESV_ERR message is missing a FlowSpec object")) return false;
+    if (check(not flow_descriptor.filter_spec, "RESV_ERR message is missing a FilterSpec object")) return false;
+
+    // All went well
+    return true;
+}
+
 bool RSVPElement::find_path_tear_ptrs(const Packet *const packet,
                                       RSVPSession*& session,
                                       RSVPHop*& hop,
@@ -81,7 +182,7 @@ bool RSVPElement::find_path_tear_ptrs(const Packet *const packet,
     const auto header {(RSVPHeader*) (packet->data())};
     auto object {(RSVPObject*) (header + 1)};
 
-    // Check for an integrity object
+    // Check for an Integrity object
     if (object->class_num == RSVPObject::Integrity) {
         const auto integrity {(RSVPIntegrity*) object};
         object = (RSVPObject*) (integrity + 1);
@@ -151,7 +252,7 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
     const auto header {(RSVPHeader*) (packet->data())};
     auto object {(RSVPObject*) (header + 1)};
 
-    // Check for an integrity object
+    // Check for an Integrity object
     if (object->class_num == RSVPObject::Integrity) {
         const auto integrity {(RSVPIntegrity*) object};
         object = (RSVPObject*) (integrity + 1);
@@ -253,7 +354,7 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
     const auto header {(RSVPHeader*) (packet->data())};
     auto object {(RSVPObject*) (header + 1)};
 
-    // Check for an integrity object which must come right after the header if included in the message
+    // Check for an Integrity object which must come right after the header if included in the message
     if (object->class_num == RSVPObject::Integrity) {
         const auto integrity {(RSVPIntegrity*) object};
         object = (RSVPObject*) (integrity + 1);
