@@ -530,6 +530,119 @@ struct RSVPResvConfirm : public RSVPObject
 };
 
 
+/**
+ * Struct to store a(n FF-style) flow descriptor consisting of a FlowSpec and a FilterSpec object
+ */
+struct FlowDescriptor
+{
+    RSVPFlowSpec* flow_spec;
+    RSVPFilterSpec* filter_spec;
+};
+
+
+/**
+ * Struct to store a (FF) sender descriptor consisting of a SenderTemplate and a SenderTSpec object
+ */
+struct SenderDescriptor
+{
+    RSVPSenderTemplate* sender;
+    RSVPSenderTSpec* tspec;
+};
+
+
+/**
+ * Struct to store pointers to the objects of a PATH message
+ */
+struct Path
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPHop*                hop                     {nullptr};
+    RSVPTimeValues*         time_values             {nullptr};
+    Vector<RSVPPolicyData*> policy_data             {};
+    SenderDescriptor        sender                  {nullptr, nullptr};
+};
+
+
+/**
+ * Struct to store pointers to the objects of a RESV message
+ */
+struct Resv
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPHop*                hop                     {nullptr};
+    RSVPTimeValues*         time_values             {nullptr};
+    RSVPResvConfirm*        resv_confirm            {nullptr};
+    RSVPScope*              scope                   {nullptr};
+    Vector<RSVPPolicyData*> policy_data             {};
+    RSVPStyle*              style                   {nullptr};
+    Vector<FlowDescriptor>  flow_descriptor_list    {};
+};
+
+
+/**
+ * Struct to store pointers to the objects of a PATH_ERR message
+ */
+struct PathErr
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPErrorSpec*          error_spec              {nullptr};
+    Vector<RSVPPolicyData*> policy_data             {};
+    SenderDescriptor        sender                  {nullptr, nullptr};
+};
+
+
+/**
+ * Struct to store pointers to the objects of a RESV_ERR message
+ */
+struct ResvErr
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPHop*                hop                     {nullptr};
+    RSVPErrorSpec*          error_spec              {nullptr};
+    RSVPScope*              scope                   {nullptr};
+    Vector<RSVPPolicyData*> policy_data             {};
+    RSVPStyle*              style                   {nullptr};
+    FlowDescriptor          flow_descriptor         {nullptr, nullptr};
+};
+
+
+/**
+ * Struct to store pointers to the objects of a PATH_TEAR message
+ */
+struct PathTear
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPHop*                hop                     {nullptr};
+    RSVPSenderTemplate*     sender_template         {nullptr};
+};
+
+
+/**
+ * Struct to store pointers to the objects of a RESV_TEAR message
+ */
+struct ResvTear
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPHop*                hop                     {nullptr};
+    RSVPStyle*              style                   {nullptr};
+    Vector<RSVPFilterSpec*> flow_descriptor_list    {};
+    // FlowSpec objects and a Scope object may be included in the message but must be ignored
+};
+
+
+/**
+ * Struct to store pointers to the objects of a RESV_CONF message
+ */
+struct ResvConf
+{
+    RSVPSession*            session                 {nullptr};
+    RSVPErrorSpec*          error_spec              {nullptr};
+    RSVPResvConfirm*        resv_confirm            {nullptr};
+    RSVPStyle*              style                   {nullptr};
+    Vector<FlowDescriptor>  flow_descriptor_list    {};
+};
+
+
 CLICK_ENDDECLS
 
 #endif // CLICK_RSVPMESSAGE_HH

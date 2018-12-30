@@ -33,10 +33,6 @@ void RSVPHost::push(int, Packet *const packet) {
     // Extract the RSVP header
     RSVPHeader *const header {(RSVPHeader*) packet->data()};
 
-    // Get the location and length of all RSVP objects combined (no header)
-    const unsigned char *const data {packet->data() + sizeof(header)};
-    const auto size {(uint16_t) (ntohs(header->length) - sizeof(header))};
-
     // Make sure the header is valid
     if (check(header->version != RSVPVersion, "RSVPHost received packet with invalid version")) return;
     if (check(click_in_cksum(packet->data(), ntohs(header->length)) != 0,
@@ -171,94 +167,72 @@ WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const 
 
 void RSVPHost::parse_path(const Packet *const packet) {
 
-    const unsigned char* message {packet->data() + sizeof(RSVPHeader)};
-    const auto header {(RSVPHeader*) packet->data()};
-    const auto size {(uint16_t) (ntohs(header->length) - sizeof(RSVPHeader))};
-
-    // A variable to keep track of how much of the message has been processed
-    int processed {0};
-
-    // Check whether there is an integrity object (should be directly after the header), if so skip it
-    const auto poss_integrity {(RSVPObject*) message};
-    if (poss_integrity->class_num == RSVPObject::Integrity) {
-        processed = sizeof(RSVPIntegrity);
-    }
-
-    // Some variables to hold the results of the parse
-    RSVPSession* session {nullptr};
-    RSVPHop* hop {nullptr};
-    RSVPTimeValues* time_values {nullptr};
-    RSVPSenderTemplate* sender_template {nullptr};
-    RSVPSenderTSpec* sender_tspec {nullptr};
-    Vector<RSVPPolicyData*> policy_data {};
-
     // Find all the objects we need from the message
-    if (check(not find_path_ptrs(packet, session, hop, time_values, sender_template, sender_tspec, policy_data),
+    Path path {};
+    if (check(not find_path_ptrs(packet, path),
             "RSVPHost received an ill-formed PATH message")) return;
 
     // Check whether the session's destination address and port matches any of the host's sessions
-    const SessionID session_id {session->dest_addr, ntohs(session->dest_port), session->proto};
+    const SessionID session_id {path.session->dest_addr, ntohs(path.session->dest_port), path.session->proto};
     auto session_pair {m_sessions.find_pair(session_id.to_key())};
     if (check(not session_pair, "RSVPHost received PATH message that doesn't seem to belong here")) return;
     Session& local_session {session_pair->value};
 
     // Construct a flow ID and check whether this is the first PATH message received from that sender
-    const FlowID sender_id {sender_template->src_addr, ntohs(sender_template->src_port)};
+    const FlowID sender_id {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
     auto sender_pair {local_session.receivers.find_pair(sender_id.to_key())};
 
     if (sender_pair) {
         // If this isn't the first PATH message, simply change the hop address if necessary
-        if (sender_pair->value.hop_address != hop->address) {
-            sender_pair->value.hop_address = hop->address; // TODO should this be checked instead of assigned?
+        if (sender_pair->value.hop_address != path.hop->address) {
+            sender_pair->value.hop_address = path.hop->address; // TODO should this be checked instead of assigned?
         }
     } else {
         // If this is the first PATH message, create a new sender and add it with the sender ID
-        const Flow receiver {hop->address, nullptr};
+        const Flow receiver {path.hop->address, nullptr};
         local_session.receivers.insert(sender_id.to_key(), receiver);
     }
 
     // (Re-)set the lifetime timer of the session
     if (check(not local_session.lifetime, "RSVPHost has local session with invalid timer")) return;
-    local_session.lifetime->reschedule_after_msec(6 * time_values->refresh);
+    local_session.lifetime->reschedule_after_msec(6 * path.time_values->refresh);
 }
 
 void RSVPHost::parse_resv(const Packet *const packet) {
 
-    RSVPSession* session {nullptr};
-    RSVPHop* hop {nullptr};
-    RSVPTimeValues* time_values {nullptr};
-    RSVPResvConfirm* resv_confirm {nullptr};
-    RSVPScope* scope {nullptr};
-    Vector<RSVPPolicyData*> policy_data {};
-    RSVPStyle* style {nullptr};
-    Vector<FlowDescriptor> flow_descriptor_list {};
+    Resv resv {};
 
     click_chatter("Find objects in the RESV message...\n");
-    find_resv_ptrs(packet, session, hop, time_values, resv_confirm, scope, policy_data, style, flow_descriptor_list);
+    find_resv_ptrs(packet, resv);
 
-    if (session) {
-        click_chatter("Session object %u found!", session);
+    if (resv.session) {
+        click_chatter("Session object %u found!", resv.session);
     }
-    if (hop) {
-        click_chatter("Hop object %u found!", hop);
+    if (resv.hop) {
+        click_chatter("Hop object %u found!", resv.hop);
     }
-    if (time_values) {
-        click_chatter("TimeValues object %u found!", time_values);
+    if (resv.time_values) {
+        click_chatter("TimeValues object %u found!", resv.time_values);
     }
-    if (resv_confirm) {
-        click_chatter("ResvConfirm object %u found!", resv_confirm);
+    if (resv.resv_confirm) {
+        click_chatter("ResvConfirm object %u found!", resv.resv_confirm);
     }
-    if (scope) {
-        click_chatter("Scope object %u found!", scope);
+    if (resv.scope) {
+        click_chatter("Scope object %u found!", resv.scope);
     }
-    if (not policy_data.empty()) {
-        click_chatter("%d PolicyData objects found!", policy_data.size());
+    if (not resv.policy_data.empty()) {
+        click_chatter("%d PolicyData objects found!", resv.policy_data.size());
     }
-    if (style) {
-        click_chatter("Style object %u found!", style);
+    if (resv.style) {
+        click_chatter("Style object %u found!", resv.style);
     }
-    if (not flow_descriptor_list.empty()) {
-        click_chatter("%d flow descriptors found!", flow_descriptor_list.size());
+    if (not resv.flow_descriptor_list.empty()) {
+        click_chatter("%d flow descriptors found!", resv.flow_descriptor_list.size());
+
+        for (auto iter {resv.flow_descriptor_list.begin()}; iter < resv.flow_descriptor_list.end(); ++iter) {
+            click_chatter(">> Flow descriptor: FlowSpec object %u, FilterSpec object %u",
+                    iter->flow_spec, iter->filter_spec);
+        }
     }
 }
 
