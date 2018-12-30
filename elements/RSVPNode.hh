@@ -47,11 +47,8 @@ private:
      * @param p
      */
     void handle_path_message(Packet* p, int port);
-
-    /**
-     * Handles a reservation message
-     */
-     void handle_resv_message(Packet* p, int port);
+    void handle_resv_message(Packet* p, int port);
+    bool handle_path_tear_message(Packet* p, int port);
 };
 
 CLICK_ENDDECLS

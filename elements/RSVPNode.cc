@@ -48,11 +48,15 @@ void RSVPNode::push(int port, Packet* p){
     else if (header->msg_type == RSVPHeader::Type::Resv){
         handle_resv_message(p, port);
     }
+
+    else if (header->msg_type == RSVPHeader::Type::PathTear){
+
+    }
     output(port).push(p);
 }
 
 void RSVPNode::handle_path_message(Packet *p, int port) {
-
+    // TODO: Timed path messages to be resend.
     // Block of info we need to find
     Path path {};
     find_path_ptrs(p, path); // function in abstract to find path ptrs
@@ -63,7 +67,6 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_session = this->session_to_key(path.session);
     uint64_t byte_sender = this->sender_template_to_key(path.sender.sender);
 
-    click_chatter(String(byte_sender).c_str());
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
@@ -74,18 +77,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         state.policy_data.push_back(*(path.policy_data[i]));
     }
     state.t_spec = *(path.sender.tspec);
+    m_path_state[byte_sender][byte_session] = state;
 
-
-    if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
-
-
-        m_path_state[byte_sender][byte_session] = state;
-        click_chatter("New session added!");
-    }
-    else{
-       m_path_state[byte_sender][byte_session] = state;
-       click_chatter(String("Session PATH updated : ", byte_session).c_str());
-    }
 
 
     RSVPHeader* header= (RSVPHeader*) p ->data();
@@ -141,6 +134,39 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     }
 
 
+}
+
+bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
+
+    PathTear tear;
+    find_path_tear_ptrs(p, tear);
+
+    uint64_t sender_key = this->sender_template_to_key(tear.sender_template);
+    uint64_t session_key = this->session_to_key(tear.session);
+
+    if(this->m_path_state.find(sender_key) != this->m_path_state.end()){
+        if(this->m_path_state[sender_key].find(session_key) != this->m_path_state[session_key].end()){
+            if(tear.hop->address == (m_path_state[sender_key][session_key]).prev_hop ){ // if the hop is different no effect
+
+                click_chatter(String("Erasing session: ", session_key).c_str());
+                this->m_path_state[sender_key].erase(session_key);
+                RSVPHeader* header= (RSVPHeader*) p ->data();
+                tear.hop->address = m_interfaces[port];
+                header->checksum = 0;
+                header->checksum = click_in_cksum(p->data(),p->length());
+
+                // Tell the IPEncapModule we keep on routing to the receiver
+                set_ipencap(tear.sender_template->src_addr, tear.session->dest_addr);
+
+                if(this->m_path_state[sender_key].empty()){
+                    this->m_path_state.erase(sender_key);
+                }
+               return true;
+            }
+        }
+    }
+    p->kill(); // We did not find the session so the tear message is discarded.
+    return false; // Nothing bad happend
 }
 
 
