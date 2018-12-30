@@ -28,11 +28,6 @@ public:
 
     int configure(Vector<String>& config, ErrorHandler* errh);
 
-    /**
-     * Changes the HOP object in a RSVP message to the IP of the interface that is connected.
-     * @param port
-     * @param p
-     */
     void push(int port, Packet* p);
 
 

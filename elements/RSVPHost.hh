@@ -62,13 +62,13 @@ public:
     WritablePacket* generate_resv_conf(const SessionID& session_id, const FlowID& sender_id);
 
     // Packet parsers
-    void parse_path(const unsigned char* message, int size);
-    void parse_resv(const unsigned char* message, int size);
-    void parse_path_err(const unsigned char* message, int size);
-    void parse_resv_err(const unsigned char* message, int size);
-    void parse_path_tear(const unsigned char* message, int size);
-    void parse_resv_tear(const unsigned char* message, int size);
-    void parse_resv_conf(const unsigned char* message, int size);
+    void parse_path(const Packet* packet);
+    void parse_resv(const Packet* packet);
+    void parse_path_err(const Packet* packet);
+    void parse_resv_err(const Packet* packet);
+    void parse_path_tear(const Packet* packet);
+    void parse_resv_tear(const Packet* packet);
+    void parse_resv_conf(const Packet* packet);
 
 private:
     // Timer callback data
