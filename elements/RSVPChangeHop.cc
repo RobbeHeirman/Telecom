@@ -8,7 +8,6 @@ CLICK_DECLS
 int RSVPChangeHop::configure(Vector<String>& config, ErrorHandler* errh){
 
     int result {Args(config, this, errh).read_mp("AddressInfo", m_address_info).consume()};
-    click_chatter(String(m_address_info.unparse()).c_str());
     // Check whether the parse failed
     if (result < 0) {
         return -1;

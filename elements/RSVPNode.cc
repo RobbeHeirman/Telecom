@@ -6,27 +6,20 @@ CLICK_DECLS
 
 RSVPNode::RSVPNode():RSVPElement() {}
 
-/*int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
-
-
-    Args args(config, this, errh);
-
+int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
 
     // Parse the config vector
-    int result {args.read_mp("AddressInfo", m_address_info).consume()};
-    click_chatter(String(m_address_info.unparse()).c_str());
+    int result {Args(config, this, errh)
+                        .read_mp("IPENCAP", ElementCastArg("IPEncap"), m_ipencap)
+                        .complete()};
+
     // Check whether the parse failed
     if (result < 0) {
+        m_ipencap = nullptr;
         return -1;
     }
-
-    while(!args.empty()){
-        IPAddress inf;
-        result = args.read_p("AddressInfo", inf).consume();
-        click_chatter(String(inf.unparse()).c_str());
-    }
     return 0;
-} */
+}
 
 
 void RSVPNode::push(int port, Packet* p){
@@ -77,6 +70,9 @@ void RSVPNode::handle_path_message(Packet *p) {
     else{
         click_chatter("Session already active..."); // Timers need to be restarted here.
     }
+
+    // Tell the IPEncapModule we keep on routing to the receiver
+    set_ipencap(sender->src_addr, session->dest_addr);
 }
 
 uint64_t RSVPNode::session_to_key(RSVPSession* session){
