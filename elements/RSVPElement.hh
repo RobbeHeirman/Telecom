@@ -94,6 +94,21 @@ protected:
                         RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
 
     /**
+     * Helper function that will help us find object in RESV messages
+     * @param packet a pointer to the packet containing the RESV message
+     * @return whether all objects were found successfully
+     */
+    bool find_resv_ptrs(const Packet *const packet,
+                        RSVPSession*& session,
+                        RSVPHop*& hop,
+                        RSVPTimeValues*& time_values,
+                        RSVPResvConfirm*& resv_confirm,
+                        RSVPScope*& scope,
+                        Vector<RSVPPolicyData*>& policy_data,
+                        RSVPStyle*& style,
+                        Vector<FlowDescriptor>& flow_descriptor_list);
+
+    /**
      * Helper function that will help us find objects in PATH_ERR messages
      * @param packet a pointer to the packet containing the PATH_ERR message
      * @return whether all objects were successfully found
