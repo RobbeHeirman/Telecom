@@ -68,20 +68,23 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
 
+    PathState state;
+    state.prev_hop = path.hop->address;
+    for(int i = 0; i < path.policy_data.size() ; i++){
+        state.policy_data.push_back(*(path.policy_data[i]));
+    }
+    state.t_spec = *(path.sender.tspec);
+
+
     if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
 
-        PathState state;
-        state.prev_hop = path.hop->address;
-        for(int i = 0; i < path.policy_data.size() ; i++){
-            state.policy_data.push_back(*(path.policy_data[i]));
-        }
-        state.t_spec = *(path.sender.tspec);
 
         m_path_state[byte_sender][byte_session] = state;
         click_chatter("New session added!");
     }
     else{
-        click_chatter("Session already active..."); // Timers need to be restarted here.
+       m_path_state[byte_sender][byte_session] = state;
+       click_chatter(String("Session PATH updated : ", byte_session).c_str());
     }
 
 
@@ -116,7 +119,6 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
             uint64_t session_key = session_to_key(resv.session);
             if(m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
-                click_chatter("Found it!!!");
                 PathState& state = m_path_state[address_key][session_key];
                 RSVPHeader* header= (RSVPHeader*) p ->data();
 
