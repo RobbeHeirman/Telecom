@@ -46,7 +46,7 @@ void RSVPNode::push(int port, Packet* p){
         Vector<RSVPPolicyData*> policy_data;
         Vector<FlowDescriptor> flow_descriptor_list;
 
-        click_chatter(String(flow_descriptor_list.size()).c_str());
+        //click_chatter(String(flow_descriptor_list.size()).c_str());
         // We loop over all flowDescriptors
         for(auto i = 0; i < flow_descriptor_list.size(); i++){
 
