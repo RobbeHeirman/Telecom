@@ -7,7 +7,6 @@
 #define TELECOM_RSVPNODE_H
 
 
-#include <click/hashtable.hh>
 #include "RSVPElement.hh"
 
 
@@ -53,30 +52,6 @@ private:
      * Handles a reservation message
      */
      void handle_resv_message(Packet* p, int port);
-
-    /**
-     * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
-     * bookkeeping.
-     */
-    uint64_t session_to_key(RSVPSession* session);
-    uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
-
-    /**
-     * PathState is a struct for bookkeeping of the RSVP path sof state.
-     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message.
-     */
-    struct PathState{
-
-        IPAddress prev_hop; // prev_hop node
-        Vector<RSVPPolicyData> policy_data; // Potential policy data
-        RSVPSenderTSpec t_spec; // TSpec element
-
-    };
-
-    typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
-    PathStateMap m_path_state;
-
-
 };
 
 CLICK_ENDDECLS

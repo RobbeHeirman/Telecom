@@ -698,6 +698,28 @@ void RSVPElement::set_ipencap(const in_addr& source, const in_addr& destination)
     m_ipencap->live_reconfigure(config, ErrorHandler::default_handler());
 }
 
+uint64_t RSVPElement::session_to_key(RSVPSession *const session) {
+
+    uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
+    uint8_t proto = session->proto;
+    uint8_t flags = session->flags;
+    uint16_t port = session->dest_port;
+
+    uint16_t temp_step1 = ((uint16_t)proto << 8)| flags;
+    uint32_t temp_step2 = ((uint32_t)temp_step1 << 16) | port;
+    return ((uint64_t)ip_addr << 32 | temp_step2);
+}
+
+uint64_t RSVPElement::sender_template_to_key(RSVPSenderTemplate *const sender_template) {
+
+    uint32_t ip_addr = (uint32_t) sender_template->src_addr.s_addr;
+    uint16_t unused = 0;
+    uint16_t src_port = sender_template->src_port;
+
+    uint32_t temp_step1 = ((uint32_t)unused << 16) | src_port;
+    return uint64_t ((uint64_t) ip_addr << 32) | temp_step1;
+}
+
 
 CLICK_ENDDECLS
 EXPORT_ELEMENT(RSVPElement)
