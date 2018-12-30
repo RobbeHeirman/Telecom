@@ -34,35 +34,7 @@ void RSVPNode::push(int port, Packet* p){
     }
 
     else if (header->msg_type == RSVPHeader::Type::Resv){
-        click_chatter("Now we receive a Reservation message");
-
-        // Simple version forward message
-        RSVPSession* session{nullptr};
-        RSVPHop* hop{nullptr};
-        RSVPTimeValues* time_values{nullptr};
-        RSVPResvConfirm* resv_confirm{nullptr};
-        RSVPScope* scope{nullptr};
-        RSVPStyle* style{nullptr};
-        Vector<RSVPPolicyData*> policy_data;
-        Vector<FlowDescriptor> flow_descriptor_list;
-
-        //click_chatter(String(flow_descriptor_list.size()).c_str());
-        // We loop over all flowDescriptors
-        for(auto i = 0; i < flow_descriptor_list.size(); i++){
-
-            FlowDescriptor& descriptor{flow_descriptor_list[i]};
-            uint32_t src_addr =(uint32_t) descriptor.filter_spec->src_addr.s_addr;
-            uint16_t port = descriptor.filter_spec->src_port;
-            uint32_t none = 0;
-            uint32_t extended_port = none | port ;
-            uint64_t address_key = ((uint64_t)src_addr << 32 ) | extended_port;
-
-            //click_chatter(String(IPAddress(src_addr).unparse()).c_str());
-
-            if(m_path_state.find(address_key) != m_path_state.end()){
-                click_chatter("Found it!!!");
-            }
-        }
+        handle_resv_message(p);
     }
     output(port).push(p);
 }
@@ -102,6 +74,46 @@ void RSVPNode::handle_path_message(Packet *p) {
 
     // Tell the IPEncapModule we keep on routing to the receiver
     set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
+}
+
+void RSVPNode::handle_resv_message(Packet *p) {
+
+    // Helping to find us our corresponding ptrs.
+    Resv resv;
+    find_resv_ptrs(p, resv);
+
+    // We loop over all flowDescriptors
+    for(auto i = 0; i < resv.flow_descriptor_list.size(); i++){
+
+        FlowDescriptor& descriptor{resv.flow_descriptor_list[i]};
+        uint32_t src_addr =(uint32_t) descriptor.filter_spec->src_addr.s_addr;
+        uint16_t port = descriptor.filter_spec->src_port;
+        uint32_t none = 0;
+        uint32_t extended_port = none | port ;
+        uint64_t address_key = ((uint64_t)src_addr << 32 ) | extended_port;
+
+        //click_chatter(String(IPAddress(src_addr).unparse()).c_str());
+
+        if(m_path_state.find(address_key) != m_path_state.end()){
+
+            uint64_t session_key = session_to_key(resv.session);
+            if(m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
+                click_chatter("Found it!!!");
+                PathState& state = m_path_state[address_key][session_key];
+                set_ipencap(resv.hop->address, state.prev_hop);
+            }
+
+            else{
+                click_chatter("Found a NONE existing session in receiver message.");
+            }
+        }
+
+        else{
+            click_chatter("Found a filter spec without matching sender spec!");
+        }
+    }
+
+
 }
 
 uint64_t RSVPNode::session_to_key(RSVPSession* session){

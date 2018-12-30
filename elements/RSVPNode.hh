@@ -51,6 +51,11 @@ private:
     void handle_path_message(Packet* p);
 
     /**
+     * Handles a reservation message
+     */
+     void handle_resv_message(Packet* p);
+
+    /**
      * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
      * bookkeeping.
      */
