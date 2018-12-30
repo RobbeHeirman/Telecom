@@ -17,5 +17,7 @@ host2
 	-> ipencap2
 	-> EtherEncap(0x0800, 3:3:3:3:3:3, 2:2:2:2:2:2)
 	-> ToDump(test2.pcap)
-	-> Discard;
+	-> Strip(14)
+	-> StripIPHeader
+	-> host1;
 

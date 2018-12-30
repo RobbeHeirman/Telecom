@@ -111,7 +111,7 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet,
                 break;
 
             case RSVPObject::Hop:
-                if (check(session, "RESV message contains two Hop objects")) return false;
+                if (check(hop, "RESV message contains two Hop objects")) return false;
                 hop = (RSVPHop*) object;
                 break;
 
@@ -147,7 +147,7 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Variable to temporarily keep a FlowSpec object before adding it to the flow descriptor list
@@ -177,7 +177,7 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Make sure all mandatory object were present in the message
@@ -186,7 +186,6 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet,
     if (check(not time_values, "RESV message is missing a TimeValues object")) return false;
     if (check(not style, "RESV message is missing a Style object")) return false;
     if (check(flow_descriptor_list.empty(), "RESV message is missing a flow descriptor list")) return false;
-    if (check(flow_spec, "RESV message is missing a FilterSpec object")) return false;
 
     // All went well
     return true;
@@ -248,7 +247,7 @@ bool RSVPElement::find_path_err_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Make sure all mandatory objects were present in the message
@@ -327,7 +326,7 @@ bool RSVPElement::find_resv_err_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // TODO skip Null objects?
@@ -404,7 +403,7 @@ bool RSVPElement::find_path_tear_ptrs(const Packet *const packet,
 
         // Add the length of the object (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Make sure all mandatory objects were present in the PATH_TEAR message
@@ -470,7 +469,7 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // If keep_going is still true, no Style object has been encountered and we've read the whole packet
@@ -497,7 +496,7 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Make sure all mandatory objects were present in the RESV_TEAR message
@@ -574,7 +573,7 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // FlowSpec variable to temporarily keep an object before adding it to the flow descriptor list
@@ -605,7 +604,7 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
 
         // Add the length advertised in the object header (in bytes) to the object pointer
         const auto byte_pointer {(uint8_t*) object};
-        object = (RSVPObject*) (byte_pointer + object->length);
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
     // Make sure all mandatory objects were present in the message
