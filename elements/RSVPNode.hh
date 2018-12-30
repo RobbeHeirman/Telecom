@@ -28,7 +28,7 @@ public:
 
     /// Standard click functions
     const char* class_name() const {return "RSVPNode";}
-    const char* port_count() const {return PORTS_1_1;} // Takes a rsvp modes and handles accordingly and outputs again 1/1
+    const char* port_count() const {return "-/-";}// Takes a rsvp modes and handles accordingly and outputs again 1/1
     const char* processing() const {return PUSH;}
 
     int configure(Vector<String>& config, ErrorHandler* errh);
@@ -40,20 +40,19 @@ public:
      * @brief: Handles a incomming RSVP message at the node. CURRENTLY: Path
      */
     void push(int port, Packet* p);
-
+    Vector<IPAddress> m_interfaces;
 
 private:
-
     /**
      * Wille handle accordingly if a message is a path message.
      * @param p
      */
-    void handle_path_message(Packet* p);
+    void handle_path_message(Packet* p, int port);
 
     /**
      * Handles a reservation message
      */
-     void handle_resv_message(Packet* p);
+     void handle_resv_message(Packet* p, int port);
 
     /**
      * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
@@ -76,6 +75,7 @@ private:
 
     typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
     PathStateMap m_path_state;
+
 
 };
 

@@ -8,16 +8,28 @@ RSVPNode::RSVPNode():RSVPElement() {}
 
 int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
 
+    Args args(config, this, errh);
     // Parse the config vector
-    int result {Args(config, this, errh)
+    IPAddress addr;
+    int result {args
                         .read_mp("IPENCAP", ElementCastArg("IPEncap"), m_ipencap)
-                        .complete()};
+                        .read_mp("AddressInfo", addr)
+                        .consume()};
 
+    m_interfaces.push_back(addr);
     // Check whether the parse failed
     if (result < 0) {
         m_ipencap = nullptr;
         return -1;
     }
+
+    while(!args.empty()){
+        IPAddress addr;
+        result = args.read_p("AddressInfo", addr).consume();
+        click_chatter(String(addr.unparse()).c_str());
+        m_interfaces.push_back(addr);
+    }
+    click_chatter(String(m_interfaces.size()).c_str());
     return 0;
 }
 
@@ -30,16 +42,16 @@ void RSVPNode::push(int port, Packet* p){
 
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
-        handle_path_message(p);
+        handle_path_message(p, port);
     }
 
     else if (header->msg_type == RSVPHeader::Type::Resv){
-        handle_resv_message(p);
+        handle_resv_message(p, port);
     }
     output(port).push(p);
 }
 
-void RSVPNode::handle_path_message(Packet *p) {
+void RSVPNode::handle_path_message(Packet *p, int port) {
 
     // Block of info we need to find
     Path path {};
@@ -72,11 +84,17 @@ void RSVPNode::handle_path_message(Packet *p) {
         click_chatter("Session already active..."); // Timers need to be restarted here.
     }
 
+
+    RSVPHeader* header= (RSVPHeader*) p ->data();
+    path.hop->address = m_interfaces[port];
+    header->checksum = 0;
+    header->checksum = click_in_cksum(p->data(),p->length());
+
     // Tell the IPEncapModule we keep on routing to the receiver
     set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
 }
 
-void RSVPNode::handle_resv_message(Packet *p) {
+void RSVPNode::handle_resv_message(Packet *p, int port) {
 
     // Helping to find us our corresponding ptrs.
     Resv resv;
@@ -87,9 +105,9 @@ void RSVPNode::handle_resv_message(Packet *p) {
 
         FlowDescriptor& descriptor{resv.flow_descriptor_list[i]};
         uint32_t src_addr =(uint32_t) descriptor.filter_spec->src_addr.s_addr;
-        uint16_t port = descriptor.filter_spec->src_port;
+        uint16_t src_port = descriptor.filter_spec->src_port;
         uint32_t none = 0;
-        uint32_t extended_port = none | port ;
+        uint32_t extended_port = none | src_port ;
         uint64_t address_key = ((uint64_t)src_addr << 32 ) | extended_port;
 
         //click_chatter(String(IPAddress(src_addr).unparse()).c_str());
@@ -100,7 +118,14 @@ void RSVPNode::handle_resv_message(Packet *p) {
             if(m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
                 click_chatter("Found it!!!");
                 PathState& state = m_path_state[address_key][session_key];
-                set_ipencap(resv.hop->address, state.prev_hop);
+                RSVPHeader* header= (RSVPHeader*) p ->data();
+
+                resv.hop->address = m_interfaces[port];
+                header->checksum = 0;
+                header->checksum = click_in_cksum(p->data(),p->length());
+
+                set_ipencap(m_interfaces[port], state.prev_hop);
+
             }
 
             else{
