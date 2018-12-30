@@ -105,7 +105,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV message
      * @return whether all objects were found successfully
      */
-    bool find_resv_ptrs(const Packet *const packet,
+    bool find_resv_ptrs(const Packet* packet,
                         RSVPSession*& session,
                         RSVPHop*& hop,
                         RSVPTimeValues*& time_values,
@@ -120,7 +120,7 @@ protected:
      * @param packet a pointer to the packet containing the PATH_ERR message
      * @return whether all objects were successfully found
      */
-    bool find_path_err_ptrs(const Packet *const packet,
+    bool find_path_err_ptrs(const Packet* packet,
                             RSVPSession*& session,
                             RSVPErrorSpec*& error_spec,
                             Vector<RSVPPolicyData*>& policy_data,
@@ -135,7 +135,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_ERR message
      * @return whether all objects were successfully found
      */
-    bool find_resv_err_ptrs(const Packet *const packet,
+    bool find_resv_err_ptrs(const Packet* packet,
                             RSVPSession*& session,
                             RSVPHop*& hop,
                             RSVPErrorSpec*& error_spec,
@@ -152,7 +152,7 @@ protected:
      * @param packet a pointer to the packet containing the PATH_TEAR message
      * @return whether all objects were successfully found
      */
-    bool find_path_tear_ptrs(const Packet *const packet,
+    bool find_path_tear_ptrs(const Packet* packet,
                              RSVPSession*& session,
                              RSVPHop*& hop,
                              RSVPSenderTemplate*& sender_template);
@@ -165,7 +165,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_TEAR message
      * @return whether all objects were successfully found
      */
-    bool find_resv_tear_ptrs(const Packet *const packet,
+    bool find_resv_tear_ptrs(const Packet* packet,
                              RSVPSession*& session,
                              RSVPHop*& hop,
                              RSVPStyle*& style,
@@ -177,7 +177,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_CONF message
      * @return whether all objects were successfully found
      */
-    bool find_resv_conf_ptrs(const Packet *const packet,
+    bool find_resv_conf_ptrs(const Packet* packet,
                              RSVPSession*& session,
                              RSVPErrorSpec*& error_spec,
                              RSVPResvConfirm*& resv_confirm,
@@ -190,7 +190,7 @@ protected:
      * @param packet a pointer to the packet containg the RSVP message
      * @return a pointer to the first RSVP object that is not an Integrity object
      */
-    RSVPObject* skip_integrity(const Packet *const packet) const;
+    RSVPObject* skip_integrity(const Packet* packet) const;
 
     /**
      * Helper function that creates a new PATH_ERR packet
