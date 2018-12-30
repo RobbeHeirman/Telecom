@@ -50,7 +50,9 @@ void RSVPNode::push(int port, Packet* p){
     }
 
     else if (header->msg_type == RSVPHeader::Type::PathTear){
-
+        if(!this->handle_path_tear_message(p, port)){ // Then the package is killed and not forwarded.
+            return;
+        }
     }
     output(port).push(p);
 }
