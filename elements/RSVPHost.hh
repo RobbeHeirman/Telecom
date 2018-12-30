@@ -57,9 +57,9 @@ public:
     void push(int, Packet*);
 
     // Packet generators
-    WritablePacket* generate_path(const SessionID& session_id, const FlowID& sender_id);
-    WritablePacket* generate_resv(const SessionID& session_id, const FlowID& sender_id, bool need_confirm = false);
-    WritablePacket* generate_resv_conf(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool need_confirm = false);
+    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id);
 
     // Packet parsers
     void parse_path(const Packet* packet);
@@ -76,13 +76,13 @@ private:
     {
         RSVPHost* host;
         SessionID session_id;
-        FlowID sender_id;
+        SenderID sender_id;
     };
     struct ResvData
     {
         RSVPHost* host;
         SessionID session_id;
-        FlowID sender_id;
+        SenderID sender_id;
         bool confirm;
     };
     struct ReleaseData

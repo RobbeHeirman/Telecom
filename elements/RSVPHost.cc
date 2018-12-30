@@ -59,7 +59,7 @@ void RSVPHost::push(int, Packet *const packet) {
     }
 }
 
-WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const SenderID& sender_id) {
 
     // Get the session and sender with the given IDs and make sure they are valid
     const auto session_pair {m_sessions.find_pair(session_id.to_key())};
@@ -92,7 +92,7 @@ WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const FlowI
     return packet;
 }
 
-WritablePacket* RSVPHost::generate_resv(const SessionID& session_id, const FlowID& sender_id, const bool need_confirm) {
+WritablePacket* RSVPHost::generate_resv(const SessionID& session_id, const SenderID& sender_id, const bool need_confirm) {
 
     // Get the session and sender with the given IDs and make sure they are valid
     const auto session_pair {m_sessions.find_pair(session_id.to_key())};
@@ -130,7 +130,7 @@ WritablePacket* RSVPHost::generate_resv(const SessionID& session_id, const FlowI
     return packet;
 }
 
-WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const SenderID& sender_id) {
 
     // Get the session and sender with the given IDs and make sure they are valid
     const auto session_pair {m_sessions.find_pair(session_id.to_key())};
@@ -169,8 +169,7 @@ void RSVPHost::parse_path(const Packet *const packet) {
 
     // Find all the objects we need from the message
     Path path {};
-    if (check(not find_path_ptrs(packet, path),
-            "RSVPHost received an ill-formed PATH message")) return;
+    if (check(not find_path_ptrs(packet, path), "RSVPHost received an ill-formed PATH message")) return;
 
     // Check whether the session's destination address and port matches any of the host's sessions
     const SessionID session_id {path.session->dest_addr, ntohs(path.session->dest_port), path.session->proto};
@@ -179,7 +178,7 @@ void RSVPHost::parse_path(const Packet *const packet) {
     Session& local_session {session_pair->value};
 
     // Construct a flow ID and check whether this is the first PATH message received from that sender
-    const FlowID sender_id {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
+    const SenderID sender_id {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
     auto sender_pair {local_session.receivers.find_pair(sender_id.to_key())};
 
     if (sender_pair) {
@@ -423,7 +422,7 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
     Session& session {host->m_sessions.find_pair(pair->value.to_key())->value};
 
     // Create a new sender ID and check whether there already is one like it in the session's senders
-    const FlowID sender_id {source_address, source_port};
+    const SenderID sender_id {source_address, source_port};
     if (session.senders.find_pair(sender_id.to_key())) {
         return errh->warning("Sender with this source address and port already exists");
     }
@@ -453,12 +452,12 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
     cp_argvec(config, vconfig);
 
     // Prepare variables for the parse results
-    int session_id {0};
+    int id {0};
     bool confirmation {true};
 
     // Parse the config vector
     int result {Args(vconfig, host, errh)
-            .read_mp("ID", session_id)
+            .read_mp("ID", id)
             .read_p("CONF", confirmation)
             .complete()};
 
@@ -468,15 +467,16 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
     }
 
     // Check whether a session with the given ID does actually exist
-    const auto pair {host->m_session_ids.find_pair(session_id)};
+    const auto pair {host->m_session_ids.find_pair(id)};
     if (not pair) {
-        return errh->error("Session with ID %d doesn't exist", session_id);
+        return errh->error("Session with ID %d doesn't exist", id);
     }
-    Session& session {host->m_sessions.find_pair(pair->value.to_key())->value};
+    const auto session_id {pair->value};
+    Session& session {host->m_sessions.find_pair(session_id.to_key())->value};
 
     // Check whether the session has already received a PATH message (there is a Flow object in the receivers map)
     if (session.receivers.empty()) {
-        return errh->error("RSVPHost hasn't received any PATH messages for session %d yet", session_id);
+        return errh->error("RSVPHost hasn't received any PATH messages for session %d yet", id);
     }
 
     // Start sending RESV messages to all senders that have already sent PATH messages
@@ -486,7 +486,7 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
         // Initialise a new timer if the receiver hasn't sent any RESV messages yet
         if (not receiver.send) {
 
-            const auto data {new ResvData {host, pair->value, *(FlowID*)(&(iter.key())), confirmation}};
+            const auto data {new ResvData {host, session_id, SenderID::from_key(iter.key()), confirmation}};
             receiver.send = new Timer {push_resv, data};
             receiver.send->initialize(host);
             // Start sending RESV messages immediately
@@ -494,7 +494,7 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
         }
     }
 
-    errh->message("Reservation confirmed for session %d", session_id);
+    errh->message("Reservation confirmed for session %d", id);
     return 0;
 }
 

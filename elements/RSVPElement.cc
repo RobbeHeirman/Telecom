@@ -576,7 +576,7 @@ RSVPObject* RSVPElement::skip_integrity(const Packet *const packet) const {
     return object;
 }
 
-WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const SenderID& sender_id) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPErrorSpec)
@@ -602,7 +602,7 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -630,7 +630,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const SenderID& sender_id) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPHop)
@@ -655,7 +655,7 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const FlowID& sender_id) {
+WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const SenderID& sender_id) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession)    + sizeof(RSVPHop)
