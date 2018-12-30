@@ -32,6 +32,38 @@ void RSVPNode::push(int port, Packet* p){
     if(header->msg_type == RSVPHeader::Type::Path){
         handle_path_message(p);
     }
+
+    else if (header->msg_type == RSVPHeader::Type::Resv){
+        click_chatter("Now we receive a Reservation message");
+
+        // Simple version forward message
+        RSVPSession* session{nullptr};
+        RSVPHop* hop{nullptr};
+        RSVPTimeValues* time_values{nullptr};
+        RSVPResvConfirm* resv_confirm{nullptr};
+        RSVPScope* scope{nullptr};
+        RSVPStyle* style{nullptr};
+        Vector<RSVPPolicyData*> policy_data;
+        Vector<FlowDescriptor> flow_descriptor_list;
+
+        click_chatter(String(flow_descriptor_list.size()).c_str());
+        // We loop over all flowDescriptors
+        for(auto i = 0; i < flow_descriptor_list.size(); i++){
+
+            FlowDescriptor& descriptor{flow_descriptor_list[i]};
+            uint32_t src_addr =(uint32_t) descriptor.filter_spec->src_addr.s_addr;
+            uint16_t port = descriptor.filter_spec->src_port;
+            uint32_t none = 0;
+            uint32_t extended_port = none | port ;
+            uint64_t address_key = ((uint64_t)src_addr << 32 ) | extended_port;
+
+            //click_chatter(String(IPAddress(src_addr).unparse()).c_str());
+
+            if(m_path_state.find(address_key) != m_path_state.end()){
+                click_chatter("Found it!!!");
+            }
+        }
+    }
     output(port).push(p);
 }
 
@@ -51,6 +83,7 @@ void RSVPNode::handle_path_message(Packet *p) {
     uint64_t byte_session = this->session_to_key(session);
     uint64_t byte_sender = this->sender_template_to_key(sender);
 
+    click_chatter(String(byte_sender).c_str());
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
