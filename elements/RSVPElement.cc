@@ -72,6 +72,75 @@ void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& ho
     if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
 }
 
+bool RSVPElement::find_path_err_ptrs(const Packet *const packet,
+                                     RSVPSession*& session,
+                                     RSVPErrorSpec*& error_spec,
+                                     Vector<RSVPPolicyData*>& policy_data,
+                                     SenderDescriptor& sender_descriptor) {
+
+    // Get the first RSVP object after the header and the Integrity object (if included)
+    auto object {skip_integrity(packet)};
+
+    // Make sure all pointers are set to nullptr to avoid reporting false duplicates
+    session = nullptr;
+    error_spec = nullptr;
+    policy_data.clear();
+    sender_descriptor = {nullptr, nullptr};
+
+    // Loop until the whole package has been read
+    while ((uint8_t*) object < packet->end_data()) {
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
+                // Null objects should be ignored
+                break;
+
+            case RSVPObject::Session:
+                if (check(session, "PATH_ERR message contains two Session objects")) return false;
+                session = (RSVPSession*) object;
+                break;
+
+            case RSVPObject::ErrorSpec:
+                if (check(error_spec, "PATH_ERR message contains two ErrorSpec objects")) return false;
+                error_spec = (RSVPErrorSpec*) object;
+                break;
+
+            case RSVPObject::PolicyData:
+                policy_data.push_back((RSVPPolicyData*) object);
+                break;
+
+            case RSVPObject::SenderTemplate:
+                if (check(sender_descriptor.sender_template, "PATH_ERR message contains two SenderTemplate objects"))
+                    return false;
+                sender_descriptor.sender_template = (RSVPSenderTemplate*) object;
+                break;
+
+            case RSVPObject::SenderTSpec:
+                if (check(sender_descriptor.sender_tspec, "PATH_ERR message contains two SenderTSpec objects"))
+                    return false;
+                sender_descriptor.sender_tspec = (RSVPSenderTSpec*) object;
+                break;
+
+            default:
+                check(true, "PATH_ERR message contains an object with an invalid class number");
+                return false;
+        }
+
+        // Add the length advertised in the object header (in bytes) to the object pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + object->length);
+    }
+
+    // Make sure all mandatory objects were present in the message
+    if (check(not session, "PATH_ERR message is missing a Session object")) return false;
+    if (check(not error_spec, "PATH_ERR message is missing an ErrorSpec object")) return false;
+    if (check(not sender_descriptor.sender_template, "PATH_ERR message is missing a SenderTemplate object")) return false;
+    if (check(not sender_descriptor.sender_tspec, "PATH_ERR message is missing a SenderTSpec object")) return false;
+
+    // All went well
+    return true;
+}
+
 bool RSVPElement::find_resv_err_ptrs(const Packet *const packet,
                                      RSVPSession*& session,
                                      RSVPHop*& hop,
@@ -81,15 +150,8 @@ bool RSVPElement::find_resv_err_ptrs(const Packet *const packet,
                                      RSVPStyle*& style,
                                      FlowDescriptor& flow_descriptor) {
 
-    // Get the first RSVP object right after the header
-    const auto header {(RSVPHeader*) (packet->data())};
-    auto object {(RSVPObject*) (header + 1)};
-
-    // Check for an Integrity object
-    if (object->class_num == RSVPObject::Integrity) {
-        const auto integrity {(RSVPIntegrity*) object};
-        object = (RSVPObject*) (integrity + 1);
-    }
+    // Get the first RSVP object after the header and the Integrity object (if included)
+    auto object {skip_integrity(packet)};
 
     // Make sure the pointers are initialised to nullpointers to avoid reporting false duplicates
     session = nullptr;
@@ -154,12 +216,11 @@ bool RSVPElement::find_resv_err_ptrs(const Packet *const packet,
     if (check(object->class_num != RSVPObject::FlowSpec,
             "RESV_ERR message Style object isn't followed by a FlowSpec object")) return false;
     flow_descriptor.flow_spec = (RSVPFlowSpec*) (object);
-    object = (RSVPObject*) (flow_descriptor.flow_spec + 1);
 
     // Make sure the next object is a FilterSpec object
     if (check(object->class_num != RSVPObject::FilterSpec,
             "RESV_ERR message FlowSpec isn't followed by a FilterSpec object")) return false;
-    flow_descriptor.filter_spec = (RSVPFilterSpec*) (object);
+    flow_descriptor.filter_spec = (RSVPFilterSpec*) (flow_descriptor.flow_spec + 1);
 
     // Make sure all mandatory objects were present in the message
     if (check(not session, "RESV_ERR message is missing a Session object")) return false;
@@ -178,15 +239,8 @@ bool RSVPElement::find_path_tear_ptrs(const Packet *const packet,
                                       RSVPHop*& hop,
                                       RSVPSenderTemplate*& sender_template) {
 
-    // Get the first RSVP object right after the header
-    const auto header {(RSVPHeader*) (packet->data())};
-    auto object {(RSVPObject*) (header + 1)};
-
-    // Check for an Integrity object
-    if (object->class_num == RSVPObject::Integrity) {
-        const auto integrity {(RSVPIntegrity*) object};
-        object = (RSVPObject*) (integrity + 1);
-    }
+    // Get the first RSVP object after the header and the Integrity object (if included)
+    auto object {skip_integrity(packet)};
 
     // Make sure all pointers are set to nullptr to avoid reporting false duplicates
     session = nullptr;
@@ -248,15 +302,8 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet,
                                       RSVPStyle*& style,
                                       Vector<RSVPFilterSpec*>& filter_specs) {
 
-    // Get the first RSVP object right after the header
-    const auto header {(RSVPHeader*) (packet->data())};
-    auto object {(RSVPObject*) (header + 1)};
-
-    // Check for an Integrity object
-    if (object->class_num == RSVPObject::Integrity) {
-        const auto integrity {(RSVPIntegrity*) object};
-        object = (RSVPObject*) (integrity + 1);
-    }
+    // Get the first RSVP object after the header and the Integrity object (if included)
+    auto object {skip_integrity(packet)};
 
     // Make sure all pointers are set to nullptr to avoid reporting false duplicates
     session = nullptr;
@@ -350,15 +397,8 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
                                       RSVPStyle*& style,
                                       Vector<FlowDescriptor>& flow_descriptor_list) {
 
-    // Get the first RSVP object right after the header
-    const auto header {(RSVPHeader*) (packet->data())};
-    auto object {(RSVPObject*) (header + 1)};
-
-    // Check for an Integrity object which must come right after the header if included in the message
-    if (object->class_num == RSVPObject::Integrity) {
-        const auto integrity {(RSVPIntegrity*) object};
-        object = (RSVPObject*) (integrity + 1);
-    }
+    // Get the first RSVP object after the header and the Integrity object (if included)
+    auto object {skip_integrity(packet)};
 
     // Make sure the pointers are initialy nullpointers to avoid false duplicate errors
     session = nullptr;
@@ -458,6 +498,21 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet,
 
     // All went well
     return true;
+}
+
+RSVPObject* RSVPElement::skip_integrity(const Packet *const packet) const {
+
+    // Get the first RSVP object right after the header
+    const auto header {(RSVPHeader*) (packet->data())};
+    auto object {(RSVPObject*) (header + 1)};
+
+    // Check for an Integrity object which must come right after the header if included in the message
+    if (object->class_num == RSVPObject::Integrity) {
+        const auto integrity {(RSVPIntegrity*) object};
+        object = (RSVPObject*) (integrity + 1);
+    }
+
+    return object;
 }
 
 WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const FlowID& sender_id) {
