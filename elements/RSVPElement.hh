@@ -57,7 +57,7 @@ struct SessionID
 
 
 /**
- * Struct to store a (FF) flow descriptor consisting of a RSVPFlowSpec and RSVPFilterSpec object
+ * Struct to store a (FF) flow descriptor consisting of a FlowSpec and a FilterSpec object
  */
 struct FlowDescriptor
 {
@@ -67,11 +67,21 @@ struct FlowDescriptor
 
 
 /**
+ * Struct to store a (FF) sender descriptor consisting of a SenderTemplate and a SenderTSpec object
+ */
+struct SenderDescriptor
+{
+    RSVPSenderTemplate* sender_template;
+    RSVPSenderTSpec* sender_tspec;
+};
+
+
+/**
  * @class
  * Abstract class for RSVPElements
  */
-class RSVPElement: public Element {
-
+class RSVPElement: public Element
+{
 public:
 
     const char* class_name() const {return "RSVPElement";}
@@ -91,9 +101,81 @@ protected:
             RSVPStyle*& style, Vector<FlowDescriptor>);
 
     /**
-     * Helper function that will help us find package ptrs.
+     * Helper function that will help us find object in RESV messages
+     * @param packet a pointer to the packet containing the RESV message
+     * @return whether all objects were found successfully
+     */
+    bool find_resv_ptrs(const Packet *const packet,
+                        RSVPSession*& session,
+                        RSVPHop*& hop,
+                        RSVPTimeValues*& time_values,
+                        RSVPResvConfirm*& resv_confirm,
+                        RSVPScope*& scope,
+                        Vector<RSVPPolicyData*>& policy_data,
+                        RSVPStyle*& style,
+                        Vector<FlowDescriptor>& flow_descriptor_list);
+
+    /**
+     * Helper function that will help us find objects in PATH_ERR messages
+     * @param packet a pointer to the packet containing the PATH_ERR message
+     * @return whether all objects were successfully found
+     */
+    bool find_path_err_ptrs(const Packet *const packet,
+                            RSVPSession*& session,
+                            RSVPErrorSpec*& error_spec,
+                            Vector<RSVPPolicyData*>& policy_data,
+                            SenderDescriptor& sender_descriptor);
+
+    /**
+     * Helper function that will help us find objects in RESV_ERR messages
+     *
+     * RESV_ERR messages only contain one flow_descriptor
+     * in this implementation Scope objects in RESV_ERR messages can be ignored
+     *
+     * @param packet a pointer to the packet containing the RESV_ERR message
+     * @return whether all objects were successfully found
+     */
+    bool find_resv_err_ptrs(const Packet *const packet,
+                            RSVPSession*& session,
+                            RSVPHop*& hop,
+                            RSVPErrorSpec*& error_spec,
+//                            RSVPScope*& scope,
+                            Vector<RSVPPolicyData*>& policy_data,
+                            RSVPStyle*& style,
+                            FlowDescriptor& flow_descriptor);
+
+    /**
+     * Helper function that will help us find objects in PATH_TEAR messages
+     *
+     * In PATH_TEAR messages sender TSpec objects should be ignored
+     *
+     * @param packet a pointer to the packet containing the PATH_TEAR message
+     * @return whether all objects were successfully found
+     */
+    bool find_path_tear_ptrs(const Packet *const packet,
+                             RSVPSession*& session,
+                             RSVPHop*& hop,
+                             RSVPSenderTemplate*& sender_template);
+
+    /**
+     * Helper function that will help us find objects in RESV_TEAR messages
+     *
+     * In RESV_TEAR messages a Scope object and FlowSpec objects should be ignored
+     *
+     * @param packet a pointer to the packet containing the RESV_TEAR message
+     * @return whether all objects were successfully found
+     */
+    bool find_resv_tear_ptrs(const Packet *const packet,
+                             RSVPSession*& session,
+                             RSVPHop*& hop,
+                             RSVPStyle*& style,
+                             Vector<RSVPFilterSpec*>& filter_specs);
+
+    /**
+     * Helper function that will help us find objects in RESV_CONF messages
+     *
      * @param packet a pointer to the packet containing the RESV_CONF message
-     * @return whether all pointers were successfully found
+     * @return whether all objects were successfully found
      */
     bool find_resv_conf_ptrs(const Packet *const packet,
                              RSVPSession*& session,
@@ -101,6 +183,14 @@ protected:
                              RSVPResvConfirm*& resv_confirm,
                              RSVPStyle*& style,
                              Vector<FlowDescriptor>& flow_descriptor_list);
+
+    /**
+     * Helper function that checks whether there is an Integrity object and skips it (as well as the header)
+     *
+     * @param packet a pointer to the packet containg the RSVP message
+     * @return a pointer to the first RSVP object that is not an Integrity object
+     */
+    RSVPObject* skip_integrity(const Packet *const packet) const;
 
     /**
      * Helper function that creates a new PATH_ERR packet
