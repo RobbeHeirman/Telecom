@@ -38,19 +38,14 @@ void RSVPNode::push(int port, Packet* p){
 void RSVPNode::handle_path_message(Packet *p) {
 
     // Block of info we need to find
-    RSVPSession* session{nullptr};
-    RSVPSenderTemplate* sender{nullptr};
-    RSVPHop* hop{nullptr};
-    RSVPTimeValues* time{nullptr};
-    RSVPSenderTSpec* t_spec{nullptr};
-    Vector<RSVPPolicyData*> policy_data;
-    find_path_ptrs(p, session, hop, time, sender, t_spec, policy_data); // function in abstract to find path ptrs
+    Path path {};
+    find_path_ptrs(p, path); // function in abstract to find path ptrs
 
 
     // "State is defined by < session, sender template>"
     // Converting packets to 64 bit words so we can use those as keys for our HashMap.
-    uint64_t byte_session = this->session_to_key(session);
-    uint64_t byte_sender = this->sender_template_to_key(sender);
+    uint64_t byte_session = this->session_to_key(path.session);
+    uint64_t byte_sender = this->sender_template_to_key(path.sender.sender);
 
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
@@ -59,11 +54,11 @@ void RSVPNode::handle_path_message(Packet *p) {
     if(m_path_state[byte_sender].find(byte_session) == m_path_state[byte_sender].end()){
 
         PathState state;
-        state.prev_hop = hop->address;
-        for(int i = 0; i < policy_data.size() ; i++){
-            state.policy_data.push_back(*policy_data[i]);
+        state.prev_hop = path.hop->address;
+        for(int i = 0; i < path.policy_data.size() ; i++){
+            state.policy_data.push_back(*(path.policy_data[i]));
         }
-        state.t_spec = *t_spec;
+        state.t_spec = *(path.sender.tspec);
 
         m_path_state[byte_sender][byte_session] = state;
         click_chatter("New session added!");
@@ -73,7 +68,7 @@ void RSVPNode::handle_path_message(Packet *p) {
     }
 
     // Tell the IPEncapModule we keep on routing to the receiver
-    set_ipencap(sender->src_addr, session->dest_addr);
+    set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
 }
 
 uint64_t RSVPNode::session_to_key(RSVPSession* session){
