@@ -17,38 +17,83 @@ CLICK_DECLS
 
 
 /**
- * Struct to store a sender template; similar to RSVPSenderTemplate but without the headers
+ * Stores a sender template; similar to RSVPSenderTemplate but without the headers
  */
-struct FlowID
+struct SenderID
 {
     in_addr source_address;
+    uint16_t _ {0};     // 2 bytes padding
     uint16_t source_port;
 
+    SenderID(): source_address {0}, source_port {0} {}
+    SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {port} {}
+
     /**
-     * Helper function to turn a FlowID object into a valid key for maps, tables...
+     * Turns a SenderID object into a key usable in maps, tables...
      */
     inline uint64_t to_key() const {
 
         return *(uint64_t*)(this);
     }
+
+    /**
+     * Turns a SenderTemplate object into a key usable in maps, tables...
+     */
+    static inline uint64_t to_key(RSVPSenderTemplate sender) {
+
+        // Make sure the 2 unused bytes are always 0 and that the RSVP object header isn't included in the key
+        sender._ = 0;
+        return *(uint64_t*)((RSVPObject*)(&sender) + 1);
+    }
+
+    /**
+     * Turns a key into a SessionID object
+     */
+    static inline SenderID from_key(const uint64_t key) {
+
+        return *(SenderID*)(&key);
+    }
 };
 
 
 /**
- * Struct to store a session; similar to RSVPSession but without the header
+ * Stores a session; similar to RSVPSession but without the header
  */
 struct SessionID
 {
     in_addr destination_address;
     uint16_t destination_port;
+    uint8_t _ {0};  // 1 byte padding
     uint8_t proto;
 
+    SessionID(): destination_address {0}, destination_port {0}, proto {0} {}
+    SessionID(const in_addr address, const uint16_t port, const uint8_t proto)
+            : destination_address {address}, destination_port {port}, proto {proto} {}
+
     /**
-     * Helper function to turn a SessionID object into a valid key for maps, tables...
+     * Turns a SessionID object into a key usable in maps, tables...
      */
     inline uint64_t to_key() const {
 
         return *(uint64_t*)(this);
+    }
+
+    /**
+     * Turns a Session object into a key usable in maps, tables...
+     */
+    static inline uint64_t to_key(RSVPSession session) {
+
+        // Make sure the flags are always 0 and that the RSVP object header isn't included in the key
+        session.flags = RSVPSession::None;
+        return *(uint64_t*)((RSVPObject*)(&session) + 1);
+    }
+
+    /**
+     * Turns a key into a SessionID object
+     */
+    static inline SessionID from_key(const uint64_t key) {
+
+        return *(SessionID*)(&key);
     }
 };
 
@@ -138,28 +183,28 @@ protected:
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_path_err(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_path_err(const SessionID& session_id, const SenderID& sender_id);
 
     /**
      * Helper function that creates a new RESV_ERR packet
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_resv_err(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id);
 
     /**
      * Helper function that creates a new PATH_TEAR message
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_path_tear(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id);
 
     /**
      * Helper function that creates a new RESV_TEAR message
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_resv_tear(const SessionID& session_id, const FlowID& sender_id);
+    WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id);
 
     /**
      * Function that sets the source and destination address in the IPEncap element
