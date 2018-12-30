@@ -5,6 +5,7 @@
 #ifndef TELECOM_RSVPELEMENT_H
 #define TELECOM_RSVPELEMENT_H
 
+#include <click/hashtable.hh>
 #include "../ip/ipencap.hh"
 #include <clicknet/ether.h>
 #include <click/element.hh>
@@ -25,6 +26,7 @@ struct SenderID
     uint16_t _ {0};     // 2 bytes padding
     uint16_t source_port;
 
+    // Constructors
     SenderID(): source_address {0}, source_port {0} {}
     SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {port} {}
 
@@ -66,6 +68,7 @@ struct SessionID
     uint8_t _ {0};  // 1 byte padding
     uint8_t proto;
 
+    // Constructors
     SessionID(): destination_address {0}, destination_port {0}, proto {0} {}
     SessionID(const in_addr address, const uint16_t port, const uint8_t proto)
             : destination_address {address}, destination_port {port}, proto {proto} {}
@@ -222,6 +225,27 @@ protected:
         return condition;
     }
 
+    /**
+     * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
+     * bookkeeping.
+     */
+    uint64_t session_to_key(RSVPSession* session);
+    uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
+
+    /**
+     * PathState is a struct for bookkeeping of the RSVP path sof state.
+     * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message.
+     */
+    struct PathState{
+
+        IPAddress prev_hop; // prev_hop node
+        Vector<RSVPPolicyData> policy_data; // Potential policy data
+        RSVPSenderTSpec t_spec; // TSpec element
+
+    };
+
+    typedef HashTable<uint64_t, HashTable<uint64_t, PathState>> PathStateMap;
+    PathStateMap m_path_state;
 
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
