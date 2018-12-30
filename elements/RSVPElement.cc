@@ -7,69 +7,80 @@
 CLICK_DECLS
 
 
-void RSVPElement::find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate*& sender,
-                    RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data){
+bool RSVPElement::find_path_ptrs(const Packet* packet,
+                                 RSVPSession*& session,
+                                 RSVPHop*& hop,
+                                 RSVPTimeValues*& time_values,
+                                 RSVPSenderTemplate*& sender,
+                                 RSVPSenderTSpec*& tspec,
+                                 Vector<RSVPPolicyData*>& policy_data) {
 
     // Main object to iterate over our package objects
-    RSVPHeader* header = (RSVPHeader*) p->data();
-    RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
-    RSVPTimeValues* time;
-    while((const unsigned  char*)object < p->end_data()){
-        // We want to handle on the type of object gets trough
-        switch (object->class_num){
-            case RSVPObject::Integrity: {
-                click_chatter("INTEGRITY is ignored");
-                auto integrity = (RSVPIntegrity*) (object);
-                object = (RSVPObject*) (integrity + 1);
-                break;
-            }
-            case RSVPObject::Class::Session : {
-                if(session != 0){click_chatter("More then one session object");} // TODO: error msg?
-                session = (RSVPSession*) object; // Downcast to RSVPSession object
-                object = (RSVPObject*) (session + 1);
-                break;
-            }
-            case RSVPObject::Class::Hop : {
-                if(hop != 0){click_chatter("More then one hop element");}
-                hop = (RSVPHop *) object; // We downcast to our RSVPHOP object
-                object = (RSVPObject*)( hop + 1);
-                break;
-            }
+    auto object {skip_integrity(packet)}; // Ptr to the RSVPObject package
 
-            case RSVPObject::Class::TimeValues : {
-                time = (RSVPTimeValues*) object;
-                object = (RSVPObject*) (time + 1);
+    // Set all pointers to nullpointers to avoid reporting false duplicate objects
+    session = nullptr;
+    hop = nullptr;
+    time_values = nullptr;
+    sender = nullptr;
+    tspec = nullptr;
+    policy_data.clear();
+
+    while((const unsigned char*) object < packet->end_data()) {
+        // We want to handle on the type of object gets trough
+        switch (object->class_num) {
+
+            case RSVPObject::Null:
                 break;
-            }
-            case RSVPObject::Class ::PolicyData : {
-                RSVPPolicyData* p_data = (RSVPPolicyData*) object;
-                policy_data.push_back(p_data);
-                object = (RSVPObject*) (p_data + 1);
+
+            case RSVPObject::Session:
+                if (check(session, "PATH message contains two Session objects")) return false;
+                session = (RSVPSession*) object; // Downcast to RSVPSession object
                 break;
-            }
-            case RSVPObject::Class::SenderTemplate : {
-                if(sender != 0){click_chatter("More the one sender template");}
+
+            case RSVPObject::Hop:
+                if (check(hop, "PATH message contains two Hop objects")) return false;
+                hop = (RSVPHop*) object; // We downcast to our RSVPHOP object
+                break;
+
+            case RSVPObject::TimeValues:
+                if (check(time_values, "PATH message contains two TimeValues objects")) return false;
+                time_values = (RSVPTimeValues*) object;
+                break;
+
+            case RSVPObject::PolicyData:
+                policy_data.push_back((RSVPPolicyData*) object);
+                break;
+
+            case RSVPObject::SenderTemplate:
+                if (check(sender, "PATH message contains two SenderTemplate objects")) return false;
                 sender = (RSVPSenderTemplate*) object;
-                object = (RSVPObject*) (sender + 1);
                 break;
-            }
-            case RSVPObject::Class::SenderTSpec : {
+
+            case RSVPObject::SenderTSpec:
+                if (check(tspec, "PATH message contains two SenderTSpec objects")) return false;
                 tspec = (RSVPSenderTSpec*) object;
-                object = (RSVPObject*) (tspec + 1);
                 break;
-            }
+
             default:
-                click_chatter("SHOULDN't HAPPEN!");
-                object = (RSVPObject*) (object + 1);
-                break;
+                click_chatter("PATH message contains an object with an invalid class number");
+                return false;
         }
+
+        // Add the object's length advertised in its header (in bytes) to the pointer
+        const auto byte_pointer {(uint8_t*) object};
+        object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
-    if (check(not session, "RSVPHost received Path message without session object")) return;
-    if (check(not hop, "RSVPHost received Path message without hop object")) return;
-    if (check(not time, "RSVPHost received Path message without time values object")) return;
-    if (check(not sender, "RSVPHost received Path message without SenderTemplate object")) return;
-    if (check(not tspec, "RSVPHost received Path message without tspec object")) return;
+    // Make sure all mandatory objects were present in the message
+    if (check(not session, "PATH message is missing a Session object")) return false;
+    if (check(not hop, "PATH message is missing a Hop object")) return false;
+    if (check(not time_values, "PATH message is missing a TimeValues object")) return false;
+    if (check(not sender, "PATH message is missing a SenderTemplate object")) return false;
+    if (check(not tspec, "PATH message is missing a SenderTSpec object")) return false;
+
+    // All went well
+    return true;
 }
 
 

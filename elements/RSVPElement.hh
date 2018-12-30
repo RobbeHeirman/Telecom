@@ -93,12 +93,25 @@ protected:
      * Helper function that will help us find package ptrs.
      * @param: Packet is a ptr to package where we want to extract the path ptrs.
      */
-    void find_path_ptrs(Packet*& p, RSVPSession*& session, RSVPHop*& hop, RSVPSenderTemplate*& sender,
-                        RSVPSenderTSpec*& tspec, Vector<RSVPPolicyData*>& policy_data);
+    bool find_path_ptrs(const Packet* packet,
+                        RSVPSession*& session,
+                        RSVPHop*& hop,
+                        RSVPTimeValues*& time_values,
+                        RSVPSenderTemplate*& sender,
+                        RSVPSenderTSpec*& tspec,
+                        Vector<RSVPPolicyData*>& policy_data);
 
-
-    void find_resv_ptrs(const Packet * const packet, RSVPSession*& session, RSVPHop*& hop, RSVPResvConfirm*& res_confirm,
-            RSVPStyle*& style, Vector<FlowDescriptor>);
+    /**
+     * Helper function that will help us find objects in RESV messages
+     * @param packet a pointer to the packet containing the RESV message
+     * @return whether all objects were successfully found
+     */
+    void find_resv_ptrs(const Packet* packet,
+                        RSVPSession*& session,
+                        RSVPHop*& hop,
+                        RSVPResvConfirm*& res_confirm,
+                        RSVPStyle*& style,
+                        Vector<FlowDescriptor>);
 
     /**
      * Helper function that will help us find object in RESV messages

@@ -45,19 +45,19 @@ void RSVPHost::push(int, Packet *const packet) {
     // React based on the message type in the header
     switch (header->msg_type) {
         case RSVPHeader::Path:
-            return parse_path(data, size);
+            return parse_path(packet);
         case RSVPHeader::Resv:
-            return parse_resv(data, size);
+            return parse_resv(packet);
         case RSVPHeader::PathErr:
-            return parse_path_err(data, size);
+            return parse_path_err(packet);
         case RSVPHeader::ResvErr:
-            return parse_resv_err(data, size);
+            return parse_resv_err(packet);
         case RSVPHeader::PathTear:
-            return parse_path_tear(data, size);
+            return parse_path_tear(packet);
         case RSVPHeader::ResvTear:
-            return parse_resv_err(data, size);
+            return parse_resv_err(packet);
         case RSVPHeader::ResvConf:
-            return parse_resv_conf(data, size);
+            return parse_resv_conf(packet);
         default:
             ErrorHandler::default_handler()->error("RSVPHost received packet with an invalid message type");
     }
@@ -169,7 +169,11 @@ WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const 
     return packet;
 }
 
-void RSVPHost::parse_path(const unsigned char *const message, const int size) {
+void RSVPHost::parse_path(const Packet *const packet) {
+
+    const unsigned char* message {packet->data() + sizeof(RSVPHeader)};
+    const auto header {(RSVPHeader*) packet->data()};
+    const auto size {(uint16_t) (ntohs(header->length) - sizeof(RSVPHeader))};
 
     // A variable to keep track of how much of the message has been processed
     int processed {0};
@@ -186,63 +190,11 @@ void RSVPHost::parse_path(const unsigned char *const message, const int size) {
     RSVPTimeValues* time_values {nullptr};
     RSVPSenderTemplate* sender_template {nullptr};
     RSVPSenderTSpec* sender_tspec {nullptr};
+    Vector<RSVPPolicyData*> policy_data {};
 
-    // Loop over the packet until all objects have been processed
-    while (processed < size) {
-
-        // Extract the common object header and its class number
-        auto *const object {(RSVPObject*) (message + processed)};
-        switch (object->class_num) {
-
-            case RSVPObject::Session:
-                // Make sure this is the first session object found
-                if (check(session, "RSVPHost received PATH message with multiple session objects")) return;
-                session = (RSVPSession*) object;
-                break;
-
-            case RSVPObject::Hop:
-                // Make sure this is the first hop object found
-                if (check(hop, "RSVPHost received PATH message with multiple hop objects")) return;
-                hop = (RSVPHop*) object;
-                break;
-
-            case RSVPObject::TimeValues:
-                // Make sure this is the first time values object found
-                if (check(time_values, "RSVPHost received PATH message with multiple time values objects")) return;
-                time_values = (RSVPTimeValues*) object;
-                break;
-
-            case RSVPObject::SenderTemplate:
-                // Make sure this is the first sender template object found
-                if (check(sender_template,
-                        "RSVPHost received PATH message with multiple sender template objects")) return;
-                sender_template = (RSVPSenderTemplate*) object;
-                break;
-
-            case RSVPObject::SenderTSpec:
-                // Make sure this is the first sender tspec object found
-                if (check(sender_tspec, "RSVPHost received PATH message with multiple sender tspec objects")) return;
-                sender_tspec = (RSVPSenderTSpec*) object;
-                break;
-
-            case RSVPObject::PolicyData:
-                // Skip any policy data objects
-                break;
-
-            default:
-                // Any other objects shouldn't be in a PATH message
-                check(true, "RSVPHost received PATH message with an object with an invalid class number");
-                return;
-        }
-        processed += ntohs(object->length);
-    }
-
-    // Make sure the mandatory objects are present in the message
-    if (check(not session, "RSVPHost received PATH message without session object")) return;
-    if (check(not hop, "RSVPHost received PATH message without hop object")) return;
-    if (check(not time_values, "RSVPHost received PATH message without time values object")) return;
-    if (check(not sender_template, "RSVPHost received PATH message without sender template object")) return;
-    if (check(not sender_tspec, "RSVPHost received PATH message without sender TSpec object")) return;
+    // Find all the objects we need from the message
+    if (check(not find_path_ptrs(packet, session, hop, time_values, sender_template, sender_tspec, policy_data),
+            "RSVPHost received an ill-formed PATH message")) return;
 
     // Check whether the session's destination address and port matches any of the host's sessions
     const SessionID session_id {session->dest_addr, ntohs(session->dest_port), session->proto};
@@ -270,32 +222,67 @@ void RSVPHost::parse_path(const unsigned char *const message, const int size) {
     local_session.lifetime->reschedule_after_msec(6 * time_values->refresh);
 }
 
-void RSVPHost::parse_resv(const unsigned char *const , const int ) {
+void RSVPHost::parse_resv(const Packet *const packet) {
+
+    RSVPSession* session {nullptr};
+    RSVPHop* hop {nullptr};
+    RSVPTimeValues* time_values {nullptr};
+    RSVPResvConfirm* resv_confirm {nullptr};
+    RSVPScope* scope {nullptr};
+    Vector<RSVPPolicyData*> policy_data {};
+    RSVPStyle* style {nullptr};
+    Vector<FlowDescriptor> flow_descriptor_list {};
+
+    click_chatter("Find objects in the RESV message...\n");
+    find_resv_ptrs(packet, session, hop, time_values, resv_confirm, scope, policy_data, style, flow_descriptor_list);
+
+    if (session) {
+        click_chatter("Session object %u found!", session);
+    }
+    if (hop) {
+        click_chatter("Hop object %u found!", hop);
+    }
+    if (time_values) {
+        click_chatter("TimeValues object %u found!", time_values);
+    }
+    if (resv_confirm) {
+        click_chatter("ResvConfirm object %u found!", resv_confirm);
+    }
+    if (scope) {
+        click_chatter("Scope object %u found!", scope);
+    }
+    if (not policy_data.empty()) {
+        click_chatter("%d PolicyData objects found!", policy_data.size());
+    }
+    if (style) {
+        click_chatter("Style object %u found!", style);
+    }
+    if (not flow_descriptor_list.empty()) {
+        click_chatter("%d flow descriptors found!", flow_descriptor_list.size());
+    }
+}
+
+void RSVPHost::parse_path_err(const Packet *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_path_err(const unsigned char *const , const int ) {
+void RSVPHost::parse_resv_err(const Packet *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_resv_err(const unsigned char *const , const int ) {
+void RSVPHost::parse_path_tear(const Packet *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_path_tear(const unsigned char *const , const int ) {
+void RSVPHost::parse_resv_tear(const Packet *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_resv_tear(const unsigned char *const , const int ) {
-
-    // TODO
-}
-
-void RSVPHost::parse_resv_conf(const unsigned char *const , const int ) {
+void RSVPHost::parse_resv_conf(const Packet *const ) {
 
     // TODO
 }

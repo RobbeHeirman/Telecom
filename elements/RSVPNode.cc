@@ -73,9 +73,10 @@ void RSVPNode::handle_path_message(Packet *p) {
     RSVPSession* session{nullptr};
     RSVPSenderTemplate* sender{nullptr};
     RSVPHop* hop{nullptr};
+    RSVPTimeValues* time{nullptr};
     RSVPSenderTSpec* t_spec{nullptr};
     Vector<RSVPPolicyData*> policy_data;
-    find_path_ptrs(p, session, hop, sender, t_spec, policy_data); // function in abstract to find path ptrs
+    find_path_ptrs(p, session, hop, time, sender, t_spec, policy_data); // function in abstract to find path ptrs
 
 
     // "State is defined by < session, sender template>"
