@@ -56,7 +56,26 @@ void RSVPNode::push(int port, Packet* p){
     }
 
     else if(header->msg_type == RSVPHeader::Type::ResvTear){
+        if(!this->handle_resv_tear_message(p, port)){
+            return;;
+        }
+    }
 
+    else if(header->msg_type == RSVPHeader::Type::PathErr){
+        if(!this->handle_path_error_message(p, port)){
+            return;
+        }
+    }
+
+    else if(header->msg_type == RSVPHeader::Type::ResvErr){
+        if(!this->handle_resv_error_message(p, port)){
+            return;
+        }
+    }
+    else if(header->msg_type == RSVPHeader::Type::ResvConf){
+        if(!this->handle_confirmation_message(p, port)){
+            return;
+        }
     }
     output(port).push(p);
 }
@@ -87,6 +106,7 @@ void RSVPNode::handle_path_message(Packet *p) {
 
     // Tell the IPEncapModule we keep on routing to the receiver
     set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
+    output(port).push(p);
 }
 
 void RSVPNode::handle_resv_message(Packet *p, int port) {
@@ -112,6 +132,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
                 //Signaling that the IPEncap with the correct src and dst addresses.
                 set_ipencap(m_interfaces[port], state.prev_hop);
+                output(port).push(p);
             }
             else {
                 click_chatter("Found a NONE existing session in receiver message.");
@@ -137,6 +158,7 @@ bool RSVPNode::handle_path_tear_message(Packet *p) {
 
     if(delete_state(sender_key, session_key, tear.hop->address)){
         set_ipencap(tear.sender_template->src_addr, tear.session->dest_addr);
+        output(port).push(p);
         return true;
     }
 
@@ -167,12 +189,12 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
                 in_addr addr = state->prev_hop;
                 if(this->delete_state(address_key, session_key, state->prev_hop, false)){ // If it's successfully deleted.
                     set_ipencap(m_interfaces[port], addr);
-                    return true;
+                    output(port).push(p);
+
                 }
 
                 else{ // If not we discard it.
                     p->kill();
-                    return false;
                 }
 
                 // Now we have to delete this state
@@ -208,6 +230,7 @@ bool RSVPNode::handle_path_error_message(Packet* p, int port){
 
         // We forward it upstream with this interface as source and the NHOP stored in state
         set_ipencap(this->m_interfaces[port], state.prev_hop);
+        output(port).push(p);
         return true;
 
     }
@@ -227,6 +250,7 @@ bool RSVPNode::handle_resv_error_message(Packet* p, int port){
 
         PathState& state = m_path_state[sender_key][session_key];
         set_ipencap(m_interfaces[port], state.next_hop);
+        output(port).push(p);
         return true;
     }
 
@@ -245,6 +269,7 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
         if(path_state_exists(sender_key, session_key)){
             PathState& state = m_path_state[sender_key][session_key];
             set_ipencap(m_interfaces[port], state.next_hop);
+            output(port).push(p);
         }
     }
     return true;
