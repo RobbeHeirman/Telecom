@@ -180,59 +180,33 @@ void RSVPHost::parse_path(const Packet *const packet) {
     // Construct a flow ID and check whether this is the first PATH message received from that sender
     const SenderID sender_id {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
     auto sender_pair {local_session.receivers.find_pair(sender_id.to_key())};
+    State* state;
 
     if (sender_pair) {
         // If this isn't the first PATH message, simply change the hop address if necessary
-        if (sender_pair->value.hop_address != path.hop->address) {
-            sender_pair->value.hop_address = path.hop->address; // TODO should this be checked instead of assigned?
+        state = &(sender_pair->value);
+        if (state->hop_address != path.hop->address) {
+            state->hop_address = path.hop->address; // TODO should this be checked instead of assigned?
         }
     } else {
-        // If this is the first PATH message, create a new sender and add it with the sender ID
-        const Flow receiver {path.hop->address, nullptr};
+        // If this is the first PATH message, start with creating a new lifetime timer
+        const auto timer {new Timer {tear_state, new TearData {this, session_id, sender_id, false}}};
+        timer->initialize(this);
+
+        // Create a new state and add it to the receiver map
+        State receiver {path.hop->address, nullptr, timer};
         local_session.receivers.insert(sender_id.to_key(), receiver);
+        state = &receiver;
     }
 
-    // (Re-)set the lifetime timer of the session
-    if (check(not local_session.lifetime, "RSVPHost has local session with invalid timer")) return;
-    local_session.lifetime->reschedule_after_msec(6 * path.time_values->refresh);
+    // (Re-)set the lifetime timer of the state
+    if (check(not state->lifetime, "RSVPHost has local session with invalid timer")) return;
+    state->lifetime->reschedule_after_msec(6 * path.time_values->refresh);
 }
 
-void RSVPHost::parse_resv(const Packet *const packet) {
+void RSVPHost::parse_resv(const Packet *const ) {
 
-    Resv resv {};
 
-    click_chatter("Find objects in the RESV message...\n");
-    find_resv_ptrs(packet, resv);
-
-    if (resv.session) {
-        click_chatter("Session object %u found!", resv.session);
-    }
-    if (resv.hop) {
-        click_chatter("Hop object %u found!", resv.hop);
-    }
-    if (resv.time_values) {
-        click_chatter("TimeValues object %u found!", resv.time_values);
-    }
-    if (resv.resv_confirm) {
-        click_chatter("ResvConfirm object %u found!", resv.resv_confirm);
-    }
-    if (resv.scope) {
-        click_chatter("Scope object %u found!", resv.scope);
-    }
-    if (not resv.policy_data.empty()) {
-        click_chatter("%d PolicyData objects found!", resv.policy_data.size());
-    }
-    if (resv.style) {
-        click_chatter("Style object %u found!", resv.style);
-    }
-    if (not resv.flow_descriptor_list.empty()) {
-        click_chatter("%d flow descriptors found!", resv.flow_descriptor_list.size());
-
-        for (auto iter {resv.flow_descriptor_list.begin()}; iter < resv.flow_descriptor_list.end(); ++iter) {
-            click_chatter(">> Flow descriptor: FlowSpec object %u, FilterSpec object %u",
-                    iter->flow_spec, iter->filter_spec);
-        }
-    }
 }
 
 void RSVPHost::parse_path_err(const Packet *const ) {
@@ -313,26 +287,32 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     timer->reschedule_after_msec(s_refresh);
 }
 
-void RSVPHost::release_session(Timer *const, void *const user_data) {
+void RSVPHost::tear_state(Timer *const, void *const user_data) {
 
     // Check whether user_data contains valid data
-    const auto data {(ReleaseData*) user_data};
-    if (check(not data, "Session can't be released; no timer data received")) return;
-    if (check(not data->host, "Session can't be released; no host received")) return;
+    const auto data {(TearData*) user_data};
+    if (check(not data, "State can't be released; no timer data received")) return;
+    if (check(not data->host, "State can't be released; no host received")) return;
 
-    auto pair {data->host->m_sessions.find_pair(data->session_id.to_key())};
-    if (check(not pair, "Session can't be released; invalid session ID received")) return;
-    Session& session {pair->value};
+    auto session_pair {data->host->m_sessions.find_pair(data->session_id.to_key())};
+    if (check(not session_pair, "State can't be released; invalid session ID received")) return;
+    Session& session {session_pair->value};
 
-    // Remove the session's senders and their timers
-    for (auto iter {session.senders.begin()}; iter != session.senders.end(); ++iter) {
-        delete iter.value().send;
+    // Find the state in the senders/receivers map depending on whether the host was the sender/receiver
+    if (data->sender) {
+        auto state_pair {session.senders.find_pair(data->sender_id.to_key())};
+        if (check(not state_pair, "State can't be released; invalid sender ID received")) return;
+        session.senders.erase(data->sender_id.to_key());
+
+        // TODO send PATH_TEAR message
+
+    } else {
+        auto state_pair {session.receivers.find_pair(data->sender_id.to_key())};
+        if (check(not state_pair, "State can't be released; invalid sender ID received")) return;
+        session.receivers.erase(data->sender_id.to_key());
+
+        // TODO send RESV_TEAR message
     }
-    session.senders.clear();
-
-    // Remove the session itself and its lifetime timer
-    delete pair->value.lifetime;
-    data->host->m_sessions.erase(data->session_id.to_key());
 }
 
 int RSVPHost::session(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
@@ -374,13 +354,8 @@ int RSVPHost::session(const String& config, Element *const element, void *const,
         return errh->warning("Session with the same destination address and port already exists");
     }
 
-    // Create a lifetime timer but don't schedule it yet
-    auto data {new ReleaseData {host, id}};
-    auto timer {new Timer {release_session, data}};
-    timer->initialize(host);
-
     // Create a new session and add it to m_sessions
-    Session session {FlowMap {}, FlowMap {}, timer};
+    Session session {StateMap {}, StateMap {}};
     host->m_sessions.insert(id.to_key(), session);
     host->m_session_ids.insert(session_id, id);
 
@@ -427,16 +402,19 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
         return errh->warning("Sender with this source address and port already exists");
     }
 
-    // Prepare the data for the new sender's timer
-    const auto data {new PathData {host, pair->value, sender_id}};
+    // Prepare the data for the new sender's timers
+    const auto path_data {new PathData {host, pair->value, sender_id}};
+    const auto tear_data {new TearData {host, pair->value, sender_id, true}};
 
     // Create a new sender object and add it to the session
-    const Flow sender {0, new Timer {push_path, data}};
+    const State sender {0, new Timer {push_path, path_data}, new Timer {tear_state, tear_data}};
     session.senders.insert(sender_id.to_key(), sender);
 
-    // Initialise the timer and schedule it immediately
+    // Initialise and schedule the timers
     sender.send->initialize(host);
     sender.send->schedule_now();
+    sender.lifetime->initialize(host);
+    sender.lifetime->schedule_after_msec(6 * s_refresh);
 
     errh->message("Defined session %d sender", session_id);
     return 0;
@@ -474,24 +452,22 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
     const auto session_id {pair->value};
     Session& session {host->m_sessions.find_pair(session_id.to_key())->value};
 
-    // Check whether the session has already received a PATH message (there is a Flow object in the receivers map)
+    // Check whether the session has already received a PATH message (there is a State object in the receivers map)
     if (session.receivers.empty()) {
         return errh->error("RSVPHost hasn't received any PATH messages for session %d yet", id);
     }
 
     // Start sending RESV messages to all senders that have already sent PATH messages
     for (auto iter {session.receivers.begin()}; iter != session.receivers.end(); ++iter) {
-        Flow receiver {iter.value()};
+        State receiver {iter.value()};
 
         // Initialise a new timer if the receiver hasn't sent any RESV messages yet
         if (not receiver.send) {
-
-            const auto data {new ResvData {host, session_id, SenderID::from_key(iter.key()), confirmation}};
-            receiver.send = new Timer {push_resv, data};
+            const auto resv_data {new ResvData {host, session_id, SenderID::from_key(iter.key()), confirmation}};
+            receiver.send = new Timer {push_resv, resv_data};
             receiver.send->initialize(host);
-            // Start sending RESV messages immediately
             receiver.send->schedule_now();
-        }
+        };
     }
 
     errh->message("Reservation confirmed for session %d", id);
