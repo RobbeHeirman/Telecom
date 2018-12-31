@@ -49,12 +49,13 @@ private:
     void handle_path_message(Packet* p, int port);
     void handle_resv_message(Packet* p, int port);
     bool handle_path_tear_message(Packet* p, int port);
-    bool handle_resv_tear_message(Packet* p, int port); // TODO: from here
-    bool handle_path_error_message(Packet* p, int port);
+    bool handle_resv_tear_message(Packet* p, int port);
+    bool handle_path_error_message(Packet* p, int port);// TODO: from here
     bool handle_resv_error_message(Packet* p, int port);
     bool handle_confirmation_message(Packet* p, int port); // Till here
 
-    bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr);
+    bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
+    bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
 };
 
 CLICK_ENDDECLS

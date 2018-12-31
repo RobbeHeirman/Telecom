@@ -108,6 +108,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
                 //TODO: Reservations should happen here, for now we only forward the message upstream.
                 PathState &state = m_path_state[address_key][session_key];
+                state.next_hop = resv.hop->address;
                 RSVPHeader *header = (RSVPHeader *) p->data();
                 //Signaling that the IPEncap with the correct src and dst addresses.
                 set_ipencap(m_interfaces[port], state.prev_hop);
@@ -151,8 +152,6 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
     ResvTear resv_tear;
     find_resv_tear_ptrs(p, resv_tear);
 
-
-
     for(int i = 0; i < resv_tear.flow_descriptor_list.size(); i++){
 
         // FF so we look for the (sender, session) pair
@@ -166,8 +165,7 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
                 // So we make a copy of the Addres of NHOP.
                 PathState* state = &m_path_state[address_key][session_key];
                 in_addr addr = state->prev_hop;
-
-                if(this->delete_state(address_key, session_key, state->prev_hop)){ // If it's successfully deleted.
+                if(this->delete_state(address_key, session_key, state->prev_hop, false)){ // If it's successfully deleted.
                     RSVPHeader *header = (RSVPHeader *) p->data();
                     set_ipencap(m_interfaces[port], state->prev_hop);
                     return true;
@@ -183,24 +181,45 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
             }
             else {
                 click_chatter("Found a NONE existing session in receiver message.");
+                return  false;
             }
 
         }
         else{
-            click_chatter("Found a filter spec without matching sender spec!");
+            click_chatter("Found a filter spec without matching sender in Pathstate!");
+            return  false;
         }
     }
 
-    return true;
+    return false;
 
 }
 bool RSVPNode::handle_path_error_message(Packet* p, int port){
-    // TODO:
 
-    return true;
+    PathErr path_err;
+    find_path_err_ptrs(p, path_err);
+
+    // Converting to keys
+    auto address_key{SenderID::to_key(*(path_err.sender.sender))};
+    auto session_key{SessionID::to_key(*(path_err.session))};
+
+    if(this->path_state_exists(address_key, session_key)){
+        // We need to find the next hop
+        PathState& state = this->m_path_state[address_key][session_key];
+
+        // We forward it upstream with this interface as source and the NHOP stored in state
+        set_ipencap(this->m_interfaces[port], state.prev_hop);
+        return true;
+
+    }
+
+    //We just need to find the next hop
+    return false;
 }
 bool RSVPNode::handle_resv_error_message(Packet* p, int port){
-    // TODO:
+
+    ResvErr rsv_err;
+    find_resv_err_ptrs(p, rsv_err);
 
     return true;
 }
@@ -209,11 +228,11 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
     return true;
 }
 
-bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& prev_hop){
+bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& prev_hop, bool is_path){
 
     if(this->m_path_state.find(sender_key) != this->m_path_state.end()) {
         if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[session_key].end()) {
-            if (prev_hop == (m_path_state[sender_key][session_key]).prev_hop.in_addr()) { // if the hop is different no effect
+            if (prev_hop == (m_path_state[sender_key][session_key]).prev_hop.in_addr() or !is_path) { // if the hop is different no effect
                 click_chatter(String("Erasing session: ", session_key).c_str());
                 this->m_path_state[sender_key].erase(session_key);
 
@@ -225,6 +244,17 @@ bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_
         }
     }
 
+    return false;
+}
+
+
+bool RSVPNode::path_state_exists(const uint64_t& sender_key, const uint64_t& session_key){
+    if(m_path_state.find(sender_key) != m_path_state.end()) {
+        // We look for the corresponding session in our PathState Table.
+        if (m_path_state[sender_key].find(session_key) != m_path_state[sender_key].end()){
+            return true;
+        }
+    }
     return false;
 }
 
