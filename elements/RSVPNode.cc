@@ -174,6 +174,12 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
     ResvTear resv_tear;
     find_resv_tear_ptrs(p, resv_tear);
 
+    for(int i = 0; i < resv_tear.flow_descriptor_list.size(); i++){
+
+        RSVPFilterSpec* filter = resv_tear.flow_descriptor_list[i];
+        //uint16_t sender_key = descriptor.filter_spec
+    }
+
     return true;
 
 }

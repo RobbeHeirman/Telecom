@@ -100,6 +100,25 @@ struct SessionID
     }
 };
 
+struct FilterSpecID{
+    in_addr source_addr;
+    uint16_t _ {0}; // 2 byte padding
+    uint16_t src_port;
+
+    FilterSpecID(): source_addr{0}, src_port{0}{}
+    FilterSpecID(const in_addr src_addr,const uint16_t src_port): source_addr{src_addr}, src_port{src_port}{}
+
+    static inline uint64_t to_key(RSVPFilterSpec sender) {
+        sender._ = 0;
+        return *(uint64_t*)((RSVPObject*)(&sender) + 1);
+    }
+
+    static inline FilterSpecID from_key(const uint64_t key) {
+
+        return *(FilterSpecID*)(&key);
+    }
+};
+
 
 /**
  * @class
