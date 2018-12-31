@@ -235,7 +235,18 @@ bool RSVPNode::handle_resv_error_message(Packet* p, int port){
     return false;
 }
 bool RSVPNode::handle_confirmation_message(Packet* p, int port){
-    // TODO:
+
+    ResvConf rsv_conf;
+    find_resv_conf_ptrs(p, rsv_conf);
+
+    auto session_key{SessionID::to_key(*rsv_conf.session)};
+    for(auto i = 0 ; i < rsv_conf.flow_descriptor_list.size() ;  i++){
+        auto sender_key{FilterSpecID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
+        if(path_state_exists(sender_key, session_key)){
+            PathState& state = m_path_state[sender_key][session_key];
+            set_ipencap(m_interfaces[port], state.next_hop);
+        }
+    }
     return true;
 }
 
