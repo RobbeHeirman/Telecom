@@ -85,13 +85,6 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     state.t_spec = *(path.sender.tspec);
     m_path_state[byte_sender][byte_session] = state;
 
-
-
-    RSVPHeader* header= (RSVPHeader*) p ->data();
-    path.hop->address = m_interfaces[port];
-    header->checksum = 0;
-    header->checksum = click_in_cksum(p->data(),p->length());
-
     // Tell the IPEncapModule we keep on routing to the receiver
     set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
 }
@@ -105,38 +98,29 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     // We loop over all flowDescriptors
     for(auto i = 0; i < resv.flow_descriptor_list.size(); i++){
 
-        FlowDescriptor& descriptor{resv.flow_descriptor_list[i]};
-        uint32_t src_addr =(uint32_t) descriptor.filter_spec->src_addr.s_addr;
-        uint16_t src_port = descriptor.filter_spec->src_port;
-        uint32_t none = 0;
-        uint32_t extended_port = none | src_port ;
-        uint64_t address_key = ((uint64_t)src_addr << 32 ) | extended_port;
+        // Since this is FF style we look for the sender corresponding with the filterspec
+        uint64_t address_key = FilterSpecID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
+        if(m_path_state.find(address_key) != m_path_state.end()) {
 
-        //click_chatter(String(IPAddress(src_addr).unparse()).c_str());
-
-        if(m_path_state.find(address_key) != m_path_state.end()){
-
+            // We look for the corresponding session in our PathState Table.
             uint64_t session_key = session_to_key(resv.session);
-            if(m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
-                PathState& state = m_path_state[address_key][session_key];
-                RSVPHeader* header= (RSVPHeader*) p ->data();
+            if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
 
-                resv.hop->address = m_interfaces[port];
-                header->checksum = 0;
-                header->checksum = click_in_cksum(p->data(),p->length());
-
+                //TODO: Reservations should happen here, for now we only forward the message upstream.
+                PathState &state = m_path_state[address_key][session_key];
+                RSVPHeader *header = (RSVPHeader *) p->data();
+                //Signaling that the IPEncap with the correct src and dst addresses.
                 set_ipencap(m_interfaces[port], state.prev_hop);
-
             }
-
-            else{
+            else {
                 click_chatter("Found a NONE existing session in receiver message.");
             }
-        }
 
+        }
         else{
             click_chatter("Found a filter spec without matching sender spec!");
         }
+
     }
 
 
@@ -151,13 +135,6 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
     uint64_t session_key = this->session_to_key(tear.session);
 
     if(delete_state(sender_key, session_key, tear.hop->address)){
-        // Setting new hop
-        tear.hop->address = m_interfaces[port];
-        // Recalculating checksum
-        RSVPHeader *header = (RSVPHeader *) p->data();
-        header->checksum = 0;
-        header->checksum = click_in_cksum(p->data(), p->length());
-        // Tell the IPEncapModule we keep on routing to the receiver
         set_ipencap(tear.sender_template->src_addr, tear.session->dest_addr);
         return true;
     }
@@ -174,10 +151,44 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
     ResvTear resv_tear;
     find_resv_tear_ptrs(p, resv_tear);
 
+
+
     for(int i = 0; i < resv_tear.flow_descriptor_list.size(); i++){
 
-        RSVPFilterSpec* filter = resv_tear.flow_descriptor_list[i];
-        //uint16_t sender_key = descriptor.filter_spec
+        // FF so we look for the (sender, session) pair
+        uint64_t address_key = FilterSpecID::to_key(*resv_tear.flow_descriptor_list[i]);
+        if(m_path_state.find(address_key) != m_path_state.end()) {
+
+            uint64_t session_key = session_to_key(resv_tear.session);
+            if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()) {
+
+                // Now we found that pathstate we first make sure that we handle our IP addresses correctly.
+                // So we make a copy of the Addres of NHOP.
+                PathState* state = &m_path_state[address_key][session_key];
+                in_addr addr = state->prev_hop;
+
+                if(this->delete_state(address_key, session_key, state->prev_hop)){ // If it's successfully deleted.
+                    RSVPHeader *header = (RSVPHeader *) p->data();
+                    set_ipencap(m_interfaces[port], state->prev_hop);
+                    return true;
+                }
+
+                else{ // If not we discard it.
+                    p->kill();
+                    return false;
+                }
+
+                // Now we have to delete this state
+
+            }
+            else {
+                click_chatter("Found a NONE existing session in receiver message.");
+            }
+
+        }
+        else{
+            click_chatter("Found a filter spec without matching sender spec!");
+        }
     }
 
     return true;
