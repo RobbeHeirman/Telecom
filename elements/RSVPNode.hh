@@ -46,9 +46,9 @@ private:
      * Wille handle accordingly if a message is a path message.
      * @param p
      */
-    void handle_path_message(Packet* p, int port);
+    void handle_path_message(Packet* p);
     void handle_resv_message(Packet* p, int port);
-    bool handle_path_tear_message(Packet* p, int port);
+    bool handle_path_tear_message(Packet* p);
     bool handle_resv_tear_message(Packet* p, int port);
     bool handle_path_error_message(Packet* p, int port);// TODO: from here
     bool handle_resv_error_message(Packet* p, int port);
