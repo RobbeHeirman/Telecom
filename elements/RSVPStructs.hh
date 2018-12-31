@@ -206,6 +206,17 @@ struct RSVPErrorSpec : public RSVPObject
         NotGuilty   = 0x02
     };
 
+    enum ErrorCode : uint8_t {
+        Confirmation = 0,
+        UnkownResvStyle = 6,
+        UnknownObjectClass = 13,
+        UnknownCType = 14,
+        API = 20,
+        TrafficControlError = 21,
+        RSVPSystemError = 23
+
+    };
+
     in_addr     address;    // 0 - 3
     uint8_t     flags;      // 4
     uint8_t     err_code;   // 5

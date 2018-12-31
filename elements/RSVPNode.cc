@@ -42,7 +42,7 @@ void RSVPNode::push(int port, Packet* p){
 
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
-        handle_path_message(p);
+        handle_path_message(p, port);
     }
 
     else if (header->msg_type == RSVPHeader::Type::Resv){
@@ -50,7 +50,7 @@ void RSVPNode::push(int port, Packet* p){
     }
 
     else if (header->msg_type == RSVPHeader::Type::PathTear){
-        if(!this->handle_path_tear_message(p)){ // Then the package is killed and not forwarded.
+        if(!this->handle_path_tear_message(p, port)){ // Then the package is killed and not forwarded.
             return;
         }
     }
@@ -80,7 +80,7 @@ void RSVPNode::push(int port, Packet* p){
     output(port).push(p);
 }
 
-void RSVPNode::handle_path_message(Packet *p) {
+void RSVPNode::handle_path_message(Packet *p, int port) {
     // TODO: Timed path messages to be resend.
     // Block of info we need to find
     Path path {};
@@ -148,7 +148,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
 }
 
-bool RSVPNode::handle_path_tear_message(Packet *p) {
+bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
 
     PathTear tear;
     find_path_tear_ptrs(p, tear);
