@@ -48,6 +48,10 @@ private:
         RSVPFilterSpec filterSpec;
         float R;
         float L;
+
+        bool is_timeout;
+        Timer* refresh;
+        Timer* timeout;
     };
 
     struct PathCallbackData {
@@ -75,8 +79,10 @@ private:
     bool handle_resv_error_message(Packet* p, int port);
     bool handle_confirmation_message(Packet* p, int port); // Till here
 
+    // deleting states
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key);
+    bool delete_ff_rsv_state(const uint64_t& sender_key, const uint64_t& session_key);
 
     // Checking states
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);

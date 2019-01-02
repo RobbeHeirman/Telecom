@@ -249,7 +249,7 @@ void RSVPHost::parse_path_tear(const Packet *const packet) {
     const uint64_t session_key {SessionID::to_key(*path_tear.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH_TEAR message that doesn't seem to belong here")) return;
-    Session& session {session_pair->value};
+    //Session& session {session_pair->value};
 
     // Check whether there is a receiver registered that matches the PATH_TEAR message's SenderTemplate object
     const SenderID sender_id {};
