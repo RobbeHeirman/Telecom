@@ -119,7 +119,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     for(auto i = 0; i < resv.flow_descriptor_list.size(); i++){
 
         // Since this is FF style we look for the sender corresponding with the filterspec
-        uint64_t address_key = FilterSpecID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
+        uint64_t address_key = SenderID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
         if(m_path_state.find(address_key) != m_path_state.end()) {
 
             // We look for the corresponding session in our PathState Table.
@@ -192,7 +192,7 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
     for(int i = 0; i < resv_tear.flow_descriptor_list.size(); i++){
 
         // FF so we look for the (sender, session) pair
-        uint64_t address_key = FilterSpecID::to_key(*resv_tear.flow_descriptor_list[i]);
+        uint64_t address_key = SenderID::to_key(*resv_tear.flow_descriptor_list[i]);
         if(m_path_state.find(address_key) != m_path_state.end()) {
 
             uint64_t session_key = session_to_key(resv_tear.session);
@@ -258,7 +258,7 @@ bool RSVPNode::handle_resv_error_message(Packet* p, int port){
     ResvErr rsv_err;
     find_resv_err_ptrs(p, rsv_err);
 
-    auto sender_key{FilterSpecID::to_key(*rsv_err.flow_descriptor.filter_spec)};
+    auto sender_key{SenderID::to_key(*rsv_err.flow_descriptor.filter_spec)};
     auto session_key{SessionID::to_key(*rsv_err.session)};
 
     if(path_state_exists(sender_key, session_key)){
@@ -280,7 +280,7 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
 
     auto session_key{SessionID::to_key(*rsv_conf.session)};
     for(auto i = 0 ; i < rsv_conf.flow_descriptor_list.size() ;  i++){
-        auto sender_key{FilterSpecID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
+        auto sender_key{SenderID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
         if(path_state_exists(sender_key, session_key)){
             PathState& state = m_path_state[sender_key][session_key];
             set_ipencap(m_interfaces[port], state.next_hop);

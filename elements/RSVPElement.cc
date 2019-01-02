@@ -73,7 +73,6 @@ bool RSVPElement::find_path_ptrs(const Packet* packet, Path& path) {
     return true;
 }
 
-
 bool RSVPElement::find_resv_ptrs(const Packet *const packet, Resv& resv) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
@@ -616,7 +615,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     memset(pos_ptr, 0, size);
 
     // The write functions return a pointer to the position right after the area they wrote to
-    RSVPHeader    ::write(pos_ptr, RSVPHeader::PathErr);
+    RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvErr);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
     RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);

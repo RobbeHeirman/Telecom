@@ -24,11 +24,11 @@ struct SenderID
 {
     in_addr source_address;
     uint16_t _ {0};     // 2 bytes padding
-    uint16_t source_port;
+    uint16_t source_port;   // the network representation of the port (endianness)
 
     // Constructors
     SenderID(): source_address {0}, source_port {0} {}
-    SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {port} {}
+    SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {htons(port)} {}
 
     /**
      * Turns a SenderID object into a key usable in maps, tables...
@@ -40,10 +40,23 @@ struct SenderID
 
     /**
      * Turns a SenderTemplate object into a key usable in maps, tables...
+     *
+     * @warning This function assumes the SenderTemplate object has its port in the representation used by the network.
+     *  This means that if the object wasn't extracted from a network packet source_port might not have its bytes in the
+     *  right order. If that is the case, either use the htons function or simply use SenderID's constructor.
      */
     static inline uint64_t to_key(RSVPSenderTemplate sender) {
 
         // Make sure the 2 unused bytes are always 0 and that the RSVP object header isn't included in the key
+        sender._ = 0;
+        return *(uint64_t*)((RSVPObject*)(&sender) + 1);
+    }
+
+    /**
+     * Turns a FilterSpec object into a key usable in maps, tables...
+     */
+    static inline uint64_t to_key(RSVPFilterSpec sender) {
+
         sender._ = 0;
         return *(uint64_t*)((RSVPObject*)(&sender) + 1);
     }
@@ -71,7 +84,7 @@ struct SessionID
     // Constructors
     SessionID(): destination_address {0}, destination_port {0}, proto {0} {}
     SessionID(const in_addr address, const uint16_t port, const uint8_t proto)
-            : destination_address {address}, destination_port {port}, proto {proto} {}
+            : destination_address {address}, destination_port {htons(port)}, proto {proto} {}
 
     /**
      * Turns a SessionID object into a key usable in maps, tables...
@@ -97,25 +110,6 @@ struct SessionID
     static inline SessionID from_key(const uint64_t key) {
 
         return *(SessionID*)(&key);
-    }
-};
-
-struct FilterSpecID{
-    in_addr source_addr;
-    uint16_t _ {0}; // 2 byte padding
-    uint16_t src_port;
-
-    FilterSpecID(): source_addr{0}, src_port{0}{}
-    FilterSpecID(const in_addr src_addr,const uint16_t src_port): source_addr{src_addr}, src_port{src_port}{}
-
-    static inline uint64_t to_key(RSVPFilterSpec sender) {
-        sender._ = 0;
-        return *(uint64_t*)((RSVPObject*)(&sender) + 1);
-    }
-
-    static inline FilterSpecID from_key(const uint64_t key) {
-
-        return *(FilterSpecID*)(&key);
     }
 };
 

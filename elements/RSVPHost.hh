@@ -15,31 +15,6 @@
 CLICK_DECLS
 
 
-// Structs and typdef to keep track of the senders of a certain session
-struct Flow
-{
-    // The address of the previous/next node
-    in_addr hop_address;
-
-    // The timer with which PATH / RESV messages are scheduled
-    Timer* send;
-};
-typedef HashMap<uint64_t, Flow> FlowMap;
-
-// Struct and typedef to keep track of all current sessions
-struct Session
-{
-    // The session's senders and receivers
-    FlowMap senders;
-    FlowMap receivers;
-
-    // The timer with which the local state's lifetime is measured
-    Timer* lifetime;
-};
-typedef HashMap<uint64_t, Session> SessionMap;
-typedef HashMap<int, SessionID> SessionIDMap;
-
-
 class RSVPHost: public RSVPElement
 {
 public:
@@ -58,8 +33,8 @@ public:
 
     // Packet generators
     WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id);
-    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool need_confirm = false);
-    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool confirm = false);
+    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv);
 
     // Packet parsers
     void parse_path(const Packet* packet);
@@ -69,6 +44,17 @@ public:
     void parse_path_tear(const Packet* packet);
     void parse_resv_tear(const Packet* packet);
     void parse_resv_conf(const Packet* packet);
+
+    // Handler functions
+    /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
+    static int session(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// sender ID <int>, SRC <addr>, PORT <port>
+    static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// reserve ID <int>, CONF <bool>
+    static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// release ID <int>
+    static int release(const String& config, Element* element, void*, ErrorHandler* errh);
+    void add_handlers();
 
 private:
     // Timer callback data
@@ -85,30 +71,39 @@ private:
         SenderID sender_id;
         bool confirm;
     };
-    struct ReleaseData
+    struct TearData
     {
         RSVPHost* host;
         SessionID session_id;
+        SenderID sender_id;
+        bool sender;
     };
 
     // Timer callback functions
     static void push_path(Timer* timer, void* user_data);
     static void push_resv(Timer* timer, void* user_data);
-    static void release_session(Timer* timer, void* user_data);
+    static void tear_state(Timer* timer, void* user_data);
 
-public:
-    // Handler functions
-    /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
-    static int session(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// sender ID <int>, SRC <addr>, PORT <port>
-    static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// reserve ID <int>, CONF <bool>
-    static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// release ID <int>
-    static int release(const String& config, Element* element, void*, ErrorHandler* errh);
-    void add_handlers();
+    // Structs and typedef to keep track of the senders of a certain session
+    struct State
+    {
+        in_addr hop_address;
+        Vector<RSVPPolicyData> policy_data;
+        RSVPSenderTSpec sender_tspec;
+        Timer* send;
+        Timer* lifetime;
+    };
+    typedef HashMap<uint64_t, State> StateMap;
 
-private:
+    // Struct and typedef to keep track of all current sessions
+    struct Session
+    {
+        StateMap senders;
+        StateMap receivers;
+    };
+    typedef HashMap<uint64_t, Session> SessionMap;
+    typedef HashMap<int, SessionID> SessionIDMap;
+
     // The current sessions
     SessionMap m_sessions;
     SessionIDMap m_session_ids;
