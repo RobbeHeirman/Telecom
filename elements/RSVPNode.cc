@@ -1,6 +1,7 @@
 #include <click/config.h>
-#include "RSVPNode.hh"
 #include <click/args.hh>
+#include <click/glue.hh>
+#include "RSVPNode.hh"
 
 CLICK_DECLS
 
@@ -26,10 +27,8 @@ int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
     while(!args.empty()){
         IPAddress addr;
         result = args.read_p("AddressInfo", addr).consume();
-        click_chatter(String(addr.unparse()).c_str());
         m_interfaces.push_back(addr);
     }
-    click_chatter(String(m_interfaces.size()).c_str());
     return 0;
 }
 
@@ -104,6 +103,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     state.t_spec = *(path.sender.tspec);
     m_path_state[byte_sender][byte_session] = state;
 
+    // TODO: NEEDS TO BE CHANGED TO SET IP DST DIRECTLY
     // Tell the IPEncapModule we keep on routing to the receiver
     set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
     output(port).push(p);
@@ -126,11 +126,26 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
             uint64_t session_key = session_to_key(resv.session);
             if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
 
-                //TODO: Reservations should happen here, for now we only forward the message upstream.
+                //TODO: Pass to admission/Policy control should happen here.
+
+                // We make a new reservation state
+                // We check if this sender is already in State map. Else we make an empty entry for this sender
+                if(m_ff_resv_states.find(address_key) == m_ff_resv_states.end()){
+                    m_ff_resv_states[address_key] = HashTable < uint64_t, ReserveState >();
+                }
+
+
+                // We add a new resv state here, modification also happens this way
+                ReserveState r_state;
+                r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                m_ff_resv_states[address_key][session_key] = r_state;
+
+                // need PHop from pathstate to forward
                 PathState &state = m_path_state[address_key][session_key];
                 state.next_hop = resv.hop->address;
 
                 //Signaling that the IPEncap with the correct src and dst addresses.
+                // TODO: THIS IS NOT GOOD, Shouldn't strip IP header and place new one
                 set_ipencap(m_interfaces[port], state.prev_hop);
                 output(port).push(p);
             }
@@ -303,6 +318,25 @@ bool RSVPNode::path_state_exists(const uint64_t& sender_key, const uint64_t& ses
         }
     }
     return false;
+}
+
+bool RSVPNode::resv_ff_exists(const uint64_t &sender_key, const uint64_t &session_key) {
+
+    if(m_ff_resv_states.find(sender_key) != m_ff_resv_states.end()){
+
+        if(m_ff_resv_states[sender_key].find(session_key) != m_ff_resv_states[sender_key].end()){
+
+            return true;
+        }
+
+    }
+    return false;
+}
+
+float calculate_L(float r){
+
+    unsigned int K = 3; //Constant in function -> this is the default
+    return (K + 0.5) * 1.5 * r; // See RFC on calculating L value
 }
 
 

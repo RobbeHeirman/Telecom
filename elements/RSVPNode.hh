@@ -39,8 +39,6 @@ public:
      * @brief: Handles a incomming RSVP message at the node. CURRENTLY: Path
      */
     void push(int port, Packet* p);
-    Vector<IPAddress> m_interfaces;
-
 private:
     /**
      * Wille handle accordingly if a message is a path message.
@@ -56,6 +54,19 @@ private:
 
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
+
+    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key);
+
+    float calculate_L(float r);
+
+    struct ReserveState {
+
+        // Simple for now
+        RSVPFlowSpec flowSpec;
+    };
+
+    Vector<IPAddress> m_interfaces;
+    HashTable<uint64_t, HashTable <uint64_t, ReserveState>> m_ff_resv_states;
 };
 
 CLICK_ENDDECLS
