@@ -48,6 +48,16 @@ private:
         float L;
     };
 
+    struct PathCallbackData {
+        RSVPNode* me;
+        PathState* path_state;
+    };
+
+    struct ReserveCallbackData {
+        RSVPNode* me;
+        ReserveState* reserve_state;
+    };
+
     /**
      * Wille handle accordingly if a message is a path message.
      * @param p
@@ -77,6 +87,12 @@ private:
     static void handle_path_time_out(Timer* timer, void* data);
     static void handle_reserve_refresh(Timer* timer, void* data);
     static void handle_reserve_time_out(Timer* timer, void* data);
+
+    //Refresh and timeout states
+    void refresh_path_state(PathState* path_state);
+    void time_out_path_state(PathState* path_state);
+    void refresh_reserve_state(ReserveState* resv);
+    void time_out_reserve_state(ReserveState* resv);
 
 private:
     Vector<IPAddress> m_interfaces;
