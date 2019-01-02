@@ -83,34 +83,21 @@ private:
     static void push_resv(Timer* timer, void* user_data);
     static void tear_state(Timer* timer, void* user_data);
 
-    // Structs and typedef to keep track of the senders of a certain session
-    struct State
-    {
-        in_addr hop_address;
-        Vector<RSVPPolicyData> policy_data;
-        RSVPSenderTSpec sender_tspec;
-        Timer* send;
-        Timer* lifetime;
-    };
-    typedef HashMap<uint64_t, State> StateMap;
-
-    // Struct and typedef to keep track of all current sessions
-    struct Session
+    // The current sessions
+    typedef HashMap<uint64_t, PathState> StateMap;
+    struct SessionStates
     {
         StateMap senders;
         StateMap receivers;
     };
-    typedef HashMap<uint64_t, Session> SessionMap;
-    typedef HashMap<int, SessionID> SessionIDMap;
+    typedef HashMap<uint64_t, SessionStates> SessionStatesMap;
+    SessionStatesMap m_sessions;
 
-    // The current sessions
-    SessionMap m_sessions;
+    typedef HashMap<int, uint64_t> SessionIDMap;
     SessionIDMap m_session_ids;
 
-    // The refresh value for RSVPTimeValues objects
+    // Default values for RSVP messages
     static constexpr uint32_t s_refresh {10000};
-
-    // Values for RSVPSenderTSpec objects
     static constexpr float s_bucket_rate {10000};
     static constexpr float s_bucket_size {1000};
     static constexpr float s_peak_rate {100000};
