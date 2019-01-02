@@ -333,6 +333,23 @@ bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_
     return false;
 }
 
+bool RSVPNode::delete_ff_rsv_state(const uint64_t& sender_key, const uint64_t& session_key){
+
+    if(this->m_ff_resv_states.find(sender_key) != this->m_ff_resv_states.end()) {
+        if (this->m_ff_resv_states[sender_key].find(session_key) != this->m_ff_resv_states[session_key].end()) {
+            click_chatter(String("Erasing session: ", session_key).c_str());
+            this->m_ff_resv_states[sender_key].erase(session_key);
+
+            if(this->m_ff_resv_states[sender_key].empty()){
+                this->m_ff_resv_states.erase(sender_key);
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 bool RSVPNode::path_state_exists(const uint64_t& sender_key, const uint64_t& session_key){
     if(m_path_state.find(sender_key) != m_path_state.end()) {
@@ -394,7 +411,7 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
     assert(rsv);
     rsv->me->time_out_reserve_state(rsv->sender_key, rsv->session_key, timer);
 
-    delete data;
+    delete rsv;
 }
 
 
@@ -436,6 +453,7 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
 }
 
 void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
+
     if(this->resv_ff_exists(sender_key, session_key)){
 
         //Sending a refresh path message
@@ -444,11 +462,29 @@ void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, 
         WritablePacket* p = this->generate_resv(state);
         this->set_ipencap(state.filterSpec.src_addr, state.session.dest_addr);
         output(0).push(p);
+
+        //And now we need to reschedule the timer, based on local R value for this session
+        t->reschedule_after_msec(state.R * 100);
     }
 }
 
 void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
 
+    // we check if this state is still in our table
+    if(this->resv_ff_exists(sender_key, session_key)){
+
+        ReserveState& state = m_ff_resv_states[sender_key][session_key];
+
+        // Checks if this state is up to timeout, this means it did not receive a path_message yet
+        if(state.is_timeout){
+            this->delete_ff_rsv_state(sender_key, session_key);
+        }
+        else{
+            // It was refreshed before timeout next timeout round the state will be destroyed.
+            state.is_timeout = true;
+            t->reschedule_after_msec(state.L * 100);
+        }
+    }
 
 }
 

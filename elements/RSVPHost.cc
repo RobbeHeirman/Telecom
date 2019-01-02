@@ -30,13 +30,16 @@ int RSVPHost::configure(Vector<String>& config, ErrorHandler *const errh) {
 
 void RSVPHost::push(int, Packet *const packet) {
 
-    // Extract the RSVP header
-    RSVPHeader *const header {(RSVPHeader*) packet->data()};
+    click_chatter("TEST");
+
+    // Make sure the packet still has its IP header, and get a pointer to the RSVP header
+    if (check(not packet->has_network_header(), "RSVPHost received packet without an IPv4 header")) return;
+    RSVPHeader *const header {(RSVPHeader*) (packet->data() + packet->network_header_length())};
 
     // Make sure the header is valid
     if (check(header->version != RSVPVersion, "RSVPHost received packet with invalid version")) return;
-    if (check(click_in_cksum(packet->data(), ntohs(header->length)) != 0,
-            "RSVPHost received packet with invalid checksum")) return;
+    if (check(click_in_cksum(packet->data(), ntohs(header->length)), "RSVPHost received packet with invalid checksum"))
+        return;
 
     // React based on the message type in the header
     switch (header->msg_type) {
@@ -173,9 +176,9 @@ void RSVPHost::parse_path(const Packet *const packet) {
 
         // Create new timers and initialise them (scheduling happens at the end of the function or in a handler)
         const auto tear_data {new TearData {this, session_id, sender_id, false}};
-        receiver.lifetime = new Timer {tear_state, tear_data};
-        receiver.lifetime->initialize(this);
-        receiver.send = nullptr;
+        receiver.timeout_timer = new Timer {tear_state, tear_data};
+        receiver.timeout_timer->initialize(this);
+        receiver.refresh_timer = nullptr;
         // If the send timer is still zero push_resv knows there it hasn't sent a RESV message yet
 
         // Collect the PATH message's PolicyData and SenderTSpec objects and add them to the state
@@ -189,10 +192,10 @@ void RSVPHost::parse_path(const Packet *const packet) {
         session.receivers.insert(sender_key, receiver);
     }
 
-    // (Re-)set the lifetime timer of the state and set the prev_hop address
+    // (Re-)set the timeout timer of the state and set the prev_hop address
     auto state = session.receivers.findp(sender_key);
-    if (check(not state->lifetime, "RSVPHost has local session with invalid timer")) return;
-    state->lifetime->reschedule_after_msec(6 * path.time_values->refresh);
+    if (check(not state->timeout_timer, "RSVPHost has local session with invalid timer")) return;
+    state->timeout_timer->reschedule_after_msec(6 * path.time_values->refresh);
     state->prev_hop = path.hop->address;
 }
 
@@ -218,7 +221,7 @@ void RSVPHost::parse_resv(const Packet *const packet) {
         PathState& state {sender_pair->value};
 
         // Set the hop address of this state
-        state.next_hop = resv.hop->address;
+        state.prev_hop = resv.hop->address;
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
         if (resv.resv_confirm) {
@@ -360,12 +363,12 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
     sender.policy_data = Vector<RSVPPolicyData> {};
 
     // Create, initialise and add new timers for/to the sender
-    sender.send = new Timer {push_path, path_data};
-    sender.send->initialize(host);
-    sender.send->schedule_now();
-    sender.lifetime = new Timer {tear_state, tear_data};
-    sender.lifetime->initialize(host);
-    sender.lifetime->schedule_after_msec(6 * s_refresh);
+    sender.refresh_timer = new Timer {push_path, path_data};
+    sender.refresh_timer->initialize(host);
+    sender.refresh_timer->schedule_now();
+    sender.timeout_timer = new Timer {tear_state, tear_data};
+    sender.timeout_timer->initialize(host);
+    sender.timeout_timer->schedule_after_msec(6 * s_refresh);
 
     // Create a new SenderTSpec object and add it as well
     sender.t_spec = RSVPSenderTSpec {};
@@ -421,12 +424,12 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
         PathState receiver {iter.value()};
 
         // Initialise a new timer if the receiver hasn't sent any RESV messages yet
-        if (not receiver.send) {
+        if (not receiver.refresh_timer) {
             const auto data {new ResvData {host, SessionID::from_key(session_id), SenderID::from_key(iter.key()),
                                            confirmation}};
-            receiver.send = new Timer {push_resv, data};
-            receiver.send->initialize(host);
-            receiver.send->schedule_now();
+            receiver.refresh_timer = new Timer {push_resv, data};
+            receiver.refresh_timer->initialize(host);
+            receiver.refresh_timer->schedule_now();
         };
     }
 
