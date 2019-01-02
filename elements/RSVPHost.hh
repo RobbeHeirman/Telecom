@@ -33,8 +33,8 @@ public:
 
     // Packet generators
     WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id);
-    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool need_confirm = false);
-    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool confirm = false);
+    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv);
 
     // Packet parsers
     void parse_path(const Packet* packet);
@@ -44,6 +44,17 @@ public:
     void parse_path_tear(const Packet* packet);
     void parse_resv_tear(const Packet* packet);
     void parse_resv_conf(const Packet* packet);
+
+    // Handler functions
+    /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
+    static int session(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// sender ID <int>, SRC <addr>, PORT <port>
+    static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// reserve ID <int>, CONF <bool>
+    static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
+    /// release ID <int>
+    static int release(const String& config, Element* element, void*, ErrorHandler* errh);
+    void add_handlers();
 
 private:
     // Timer callback data
@@ -73,19 +84,6 @@ private:
     static void push_resv(Timer* timer, void* user_data);
     static void tear_state(Timer* timer, void* user_data);
 
-public:
-    // Handler functions
-    /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
-    static int session(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// sender ID <int>, SRC <addr>, PORT <port>
-    static int sender(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// reserve ID <int>, CONF <bool>
-    static int reserve(const String& config, Element* element, void*, ErrorHandler* errh);
-    /// release ID <int>
-    static int release(const String& config, Element* element, void*, ErrorHandler* errh);
-    void add_handlers();
-
-private:
     // Structs and typedef to keep track of the senders of a certain session
     struct State
     {
