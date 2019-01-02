@@ -36,13 +36,13 @@ public:
     WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv);
 
     // Packet parsers
-    void parse_path(const Packet* packet);
-    void parse_resv(const Packet* packet);
-    void parse_path_err(const Packet* packet);
-    void parse_resv_err(const Packet* packet);
-    void parse_path_tear(const Packet* packet);
-    void parse_resv_tear(const Packet* packet);
-    void parse_resv_conf(const Packet* packet);
+    void parse_path(const unsigned char* packet);
+    void parse_resv(const unsigned char* packet);
+    void parse_path_err(const unsigned char* packet);
+    void parse_resv_err(const unsigned char* packet);
+    void parse_path_tear(const unsigned char* packet);
+    void parse_resv_tear(const unsigned char* packet);
+    void parse_resv_conf(const unsigned char* packet);
 
     // Handler functions
     /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
@@ -84,6 +84,15 @@ private:
     static void tear_state(Timer* timer, void* user_data);
 
     // The current sessions
+    struct PathState
+    {
+        IPAddress prev_hop;
+        Vector<RSVPPolicyData> policy_data;
+        RSVPSenderTSpec t_spec;
+
+        Timer* timeout_timer;
+        Timer* refresh_timer;
+    };
     typedef HashMap<uint64_t, PathState> StateMap;
     struct SessionStates
     {

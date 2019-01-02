@@ -135,21 +135,21 @@ protected:
      * Helper function that will help us find package ptrs.
      * @param: Packet is a ptr to package where we want to extract the path ptrs.
      */
-    bool find_path_ptrs(const Packet* packet, Path& path);
+    bool find_path_ptrs(const unsigned char* packet, Path& path);
 
     /**
      * Helper function that will help us find object in RESV messages
      * @param packet a pointer to the packet containing the RESV message
      * @return whether all objects were found successfully
      */
-    bool find_resv_ptrs(const Packet* packet, Resv& resv);
+    bool find_resv_ptrs(const unsigned char* packet, Resv& resv);
 
     /**
      * Helper function that will help us find objects in PATH_ERR messages
      * @param packet a pointer to the packet containing the PATH_ERR message
      * @return whether all objects were successfully found
      */
-    bool find_path_err_ptrs(const Packet* packet, PathErr& path_err);
+    bool find_path_err_ptrs(const unsigned char* packet, PathErr& path_err);
 
     /**
      * Helper function that will help us find objects in RESV_ERR messages
@@ -160,7 +160,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_ERR message
      * @return whether all objects were successfully found
      */
-    bool find_resv_err_ptrs(const Packet* packet, ResvErr& resv_err);
+    bool find_resv_err_ptrs(const unsigned char* packet, ResvErr& resv_err);
 
     /**
      * Helper function that will help us find objects in PATH_TEAR messages
@@ -170,7 +170,7 @@ protected:
      * @param packet a pointer to the packet containing the PATH_TEAR message
      * @return whether all objects were successfully found
      */
-    bool find_path_tear_ptrs(const Packet* packet, PathTear& path_tear);
+    bool find_path_tear_ptrs(const unsigned char* packet, PathTear& path_tear);
 
     /**
      * Helper function that will help us find objects in RESV_TEAR messages
@@ -180,7 +180,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_TEAR message
      * @return whether all objects were successfully found
      */
-    bool find_resv_tear_ptrs(const Packet* packet, ResvTear& resv_tear);
+    bool find_resv_tear_ptrs(const unsigned char* packet, ResvTear& resv_tear);
 
     /**
      * Helper function that will help us find objects in RESV_CONF messages
@@ -188,7 +188,7 @@ protected:
      * @param packet a pointer to the packet containing the RESV_CONF message
      * @return whether all objects were successfully found
      */
-    bool find_resv_conf_ptrs(const Packet* packet, ResvConf& resv_conf);
+    bool find_resv_conf_ptrs(const unsigned char* packet, ResvConf& resv_conf);
 
     /**
      * Helper function that checks whether there is an Integrity object and skips it (as well as the header)
@@ -196,7 +196,7 @@ protected:
      * @param packet a pointer to the packet containg the RSVP message
      * @return a pointer to the first RSVP object that is not an Integrity object
      */
-    RSVPObject* skip_integrity(const Packet* packet) const;
+    RSVPObject* skip_integrity(const unsigned char* packet) const;
 
     /**
      * Helper function that creates a new PATH_ERR packet
@@ -229,7 +229,7 @@ protected:
     /**
      * Function that sets the source and destination address in the IPEncap element
      */
-    void set_ipencap(const in_addr& source, const in_addr& destination);
+    void ipencap(Packet* packet, const in_addr& source, const in_addr& destination);
 
     /**
      * Function that sends an error to the default handler if the condition is true
@@ -285,9 +285,6 @@ protected:
 
     // needs to place his ip address in next hop.
     IPAddress m_address_info;
-
-    // The IPEncap element that (should) encapsulate(s) any packet sent out by the RSVPHost element
-    IPEncap* m_ipencap;
 
     // The headroom needed for an ether and ip header
     static constexpr unsigned int s_headroom {sizeof(click_ip) + 4 + sizeof(click_ether)};

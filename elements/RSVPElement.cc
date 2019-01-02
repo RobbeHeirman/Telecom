@@ -7,15 +7,16 @@
 CLICK_DECLS
 
 
-bool RSVPElement::find_path_ptrs(const Packet* packet, Path& path) {
+bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) {
 
     // Main object to iterate over our package objects
-    auto object {skip_integrity(packet)}; // Ptr to the RSVPObject package
+    const auto header {(RSVPHeader*) packet};
+    auto object {skip_integrity(packet)}; // Ptr to the first RSVPObject
 
     // Make sure path is initialised properly to avoid reporting false duplicate errors
     path = Path {};
 
-    while((const unsigned char*) object < packet->end_data()) {
+    while((const unsigned char*) object < packet + ntohs(header->length)) {
         // We want to handle on the type of object gets trough
         switch (object->class_num) {
 
@@ -73,9 +74,10 @@ bool RSVPElement::find_path_ptrs(const Packet* packet, Path& path) {
     return true;
 }
 
-bool RSVPElement::find_resv_ptrs(const Packet *const packet, Resv& resv) {
+bool RSVPElement::find_resv_ptrs(const unsigned char *const packet, Resv& resv) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure resv is initialised properly to avoid reporting false duplicate errors
@@ -83,7 +85,7 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet, Resv& resv) {
 
     // Loop until all objects except for the flow descriptor list has been read
     bool keep_going {true};
-    while (keep_going and (uint8_t*) object < packet->end_data()) {
+    while (keep_going and (uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -139,7 +141,7 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet, Resv& resv) {
     RSVPFlowSpec* flow_spec {nullptr};
 
     // We can continue with the object pointer as we exited the previous loop after encountering a Style object
-    while ((uint8_t*) object < packet->end_data()) {
+    while ((uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -176,16 +178,17 @@ bool RSVPElement::find_resv_ptrs(const Packet *const packet, Resv& resv) {
     return true;
 }
 
-bool RSVPElement::find_path_err_ptrs(const Packet *const packet, PathErr& path_err) {
+bool RSVPElement::find_path_err_ptrs(const unsigned char *const packet, PathErr& path_err) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure path_err is initialised properly to avoid reporting false duplicate errors
     path_err = PathErr {};
 
     // Loop until the whole package has been read
-    while ((uint8_t*) object < packet->end_data()) {
+    while ((uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -236,9 +239,10 @@ bool RSVPElement::find_path_err_ptrs(const Packet *const packet, PathErr& path_e
     return true;
 }
 
-bool RSVPElement::find_resv_err_ptrs(const Packet *const packet, ResvErr& resv_err) {
+bool RSVPElement::find_resv_err_ptrs(const unsigned char *const packet, ResvErr& resv_err) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure resv_err is initialised properly to avoid reporting false duplicates
@@ -246,7 +250,7 @@ bool RSVPElement::find_resv_err_ptrs(const Packet *const packet, ResvErr& resv_e
 
     // Loop until every object object except for the flow descriptor has been read
     bool keep_going {true};
-    while (keep_going and (uint8_t*) object < packet->end_data()) {
+    while (keep_going and (uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -316,9 +320,10 @@ bool RSVPElement::find_resv_err_ptrs(const Packet *const packet, ResvErr& resv_e
     return true;
 }
 
-bool RSVPElement::find_path_tear_ptrs(const Packet *const packet, PathTear& path_tear) {
+bool RSVPElement::find_path_tear_ptrs(const unsigned char *const packet, PathTear& path_tear) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure path_tear is initialised properly to avoid reporting false duplicate errors
@@ -326,7 +331,7 @@ bool RSVPElement::find_path_tear_ptrs(const Packet *const packet, PathTear& path
     RSVPSenderTSpec* sender_tspec {nullptr};
 
     // Loop until every object has been read
-    while ((uint8_t*) object < packet->end_data()) {
+    while ((uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -374,9 +379,10 @@ bool RSVPElement::find_path_tear_ptrs(const Packet *const packet, PathTear& path
     return true;
 }
 
-bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet, ResvTear& resv_tear) {
+bool RSVPElement::find_resv_tear_ptrs(const unsigned char *const packet, ResvTear& resv_tear) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure resv_tear is properly initialised to avoid reporting false duplicate errors
@@ -385,7 +391,7 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet, ResvTear& resv
 
     // Loop until every object except for the flow descriptor list has been read
     bool keep_going {true};
-    while (keep_going and (uint8_t*) object < packet->end_data()) {
+    while (keep_going and (uint8_t*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -426,7 +432,7 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet, ResvTear& resv
     }
 
     // We can continue with the object pointer because we didn't increase it after meeting a FlowSpec object
-    while ((unsigned char*) object < packet->end_data()) {
+    while ((unsigned char*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -459,9 +465,10 @@ bool RSVPElement::find_resv_tear_ptrs(const Packet *const packet, ResvTear& resv
     return true;
 }
 
-bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet, ResvConf& resv_conf) {
+bool RSVPElement::find_resv_conf_ptrs(const unsigned char *const packet, ResvConf& resv_conf) {
 
     // Get the first RSVP object after the header and the Integrity object (if included)
+    const auto header {(RSVPHeader*) packet};
     auto object {skip_integrity(packet)};
 
     // Make sure resv_conf is properly initialised to avoid reporting false duplicate errors
@@ -469,7 +476,7 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet, ResvConf& resv
 
     // Loop until every object except for the flow descriptor list has been read
     bool keep_going {true};
-    while (keep_going and (unsigned char*) object < packet->end_data()) {
+    while (keep_going and (unsigned char*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -521,7 +528,7 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet, ResvConf& resv
     RSVPFlowSpec* flow_spec {nullptr};
 
     // We can continue with the object pointer because we didn't increase it after meeting a FlowSpec object
-    while ((unsigned char*) object < packet->end_data()) {
+    while ((unsigned char*) object < packet + ntohs(header->length)) {
         switch (object->class_num) {
 
             case RSVPObject::Null:
@@ -560,11 +567,10 @@ bool RSVPElement::find_resv_conf_ptrs(const Packet *const packet, ResvConf& resv
     return true;
 }
 
-RSVPObject* RSVPElement::skip_integrity(const Packet *const packet) const {
+RSVPObject* RSVPElement::skip_integrity(const unsigned char *const packet) const {
 
     // Get the first RSVP object right after the header
-    const auto header {(RSVPHeader*) (packet->data())};
-    auto object {(RSVPObject*) (header + 1)};
+    auto object {(RSVPObject*) ((RSVPHeader*) packet + 1)};
 
     // Check for an Integrity object which must come right after the header if included in the message
     if (object->class_num == RSVPObject::Integrity) {
@@ -679,22 +685,31 @@ WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, con
     return packet;
 }
 
-void RSVPElement::set_ipencap(const in_addr& source, const in_addr& destination) {
+void RSVPElement::ipencap(Packet *const packet, const in_addr& source, const in_addr& destination) {
 
-    // Make sure m_ipencap actually exists
-    assert(m_ipencap);
+    click_ip* ip_header {nullptr};
+    const auto size {sizeof(click_ip)};
 
-    // Prepare a buffer and a vector to hold the configuration and result (resp.)
-    char buf[INET_ADDRSTRLEN] {};
-    Vector<String> config {};
+    if (not packet->has_network_header()) {
+        const auto temp = (click_ip*) packet->push(size);
+        if (not temp) {
+            return;
+        }
+    }
+    ip_header = (click_ip*) packet->data();
+    packet->set_ip_header(ip_header, size);
+    memset(ip_header, 0, size);
 
-    // Convert and add the source and destination address to the configuration; make sure the protocol is set to RSVP
-    config.push_back(String("46"));                                                     // PROTO (46 = RSVP)
-    config.push_back(String(inet_ntop(AF_INET, &source, buf, INET_ADDRSTRLEN)));        // SRC
-    config.push_back(String(inet_ntop(AF_INET, &destination, buf, INET_ADDRSTRLEN)));   // DST
-
-    // Configure the IPEncap element with the configuration
-    m_ipencap->live_reconfigure(config, ErrorHandler::default_handler());
+    ip_header->ip_v = 4;
+    ip_header->ip_hl = size / 4;
+    ip_header->ip_tos = 32;
+    ip_header->ip_len = htons(packet->length());
+    ip_header->ip_id = 0;
+    ip_header->ip_ttl = 100;
+    ip_header->ip_p = IP_PROTO_RSVP;
+    ip_header->ip_src = source;
+    ip_header->ip_dst = destination;
+    ip_header->ip_sum = click_in_cksum((unsigned char*) packet->data(), size);
 }
 
 uint64_t RSVPElement::session_to_key(RSVPSession *const session) {

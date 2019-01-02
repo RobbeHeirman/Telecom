@@ -13,53 +13,50 @@ RSVPHost::RSVPHost() = default;
 
 RSVPHost::~RSVPHost() = default;
 
-int RSVPHost::configure(Vector<String>& config, ErrorHandler *const errh) {
+int RSVPHost::configure(Vector<String>& , ErrorHandler *const ) {
 
-    // Parse the config vector
-    int result {Args(config, this, errh)
-            .read_mp("IPENCAP", ElementCastArg("IPEncap"), m_ipencap)
-            .complete()};
-
-    // Check whether the parse failed
-    if (result < 0) {
-        m_ipencap = nullptr;
-        return -1;
-    }
+//    // Parse the config vector
+//    int result {Args(config, this, errh)
+//            .complete()};
+//
+//    // Check whether the parse failed
+//    if (result < 0) {
+//        return -1;
+//    }
     return 0;
 }
 
 void RSVPHost::push(int, Packet *const packet) {
 
-    click_chatter("TEST");
-
-    // Make sure the packet still has its IP header, and get a pointer to the RSVP header
-    if (check(not packet->has_network_header(), "RSVPHost received packet without an IPv4 header")) return;
-    RSVPHeader *const header {(RSVPHeader*) (packet->data() + packet->network_header_length())};
+    // Get the header from the RSVP message
+    const auto header {(RSVPHeader*) (packet->data() + packet->ip_header_length())};
 
     // Make sure the header is valid
     if (check(header->version != RSVPVersion, "RSVPHost received packet with invalid version")) return;
-    if (check(click_in_cksum(packet->data(), ntohs(header->length)), "RSVPHost received packet with invalid checksum"))
-        return;
+    if (check(click_in_cksum((unsigned char*) header, ntohs(header->length)),
+            "RSVPHost received packet with invalid checksum")) return;
 
     // React based on the message type in the header
     switch (header->msg_type) {
         case RSVPHeader::Path:
-            return parse_path(packet);
+            return parse_path((unsigned char*) header);
         case RSVPHeader::Resv:
-            return parse_resv(packet);
+            return parse_resv((unsigned char*) header);
         case RSVPHeader::PathErr:
-            return parse_path_err(packet);
+            return parse_path_err((unsigned char*) header);
         case RSVPHeader::ResvErr:
-            return parse_resv_err(packet);
+            return parse_resv_err((unsigned char*) header);
         case RSVPHeader::PathTear:
-            return parse_path_tear(packet);
+            return parse_path_tear((unsigned char*) header);
         case RSVPHeader::ResvTear:
-            return parse_resv_err(packet);
+            return parse_resv_tear((unsigned char*) header);
         case RSVPHeader::ResvConf:
-            return parse_resv_conf(packet);
+            return parse_resv_conf((unsigned char*) header);
         default:
             ErrorHandler::default_handler()->error("RSVPHost received packet with an invalid message type");
     }
+
+    packet->kill();
 }
 
 WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const SenderID& sender_id) {
@@ -151,7 +148,7 @@ WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const 
     return packet;
 }
 
-void RSVPHost::parse_path(const Packet *const packet) {
+void RSVPHost::parse_path(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Path path {};
@@ -199,7 +196,7 @@ void RSVPHost::parse_path(const Packet *const packet) {
     state->prev_hop = path.hop->address;
 }
 
-void RSVPHost::parse_resv(const Packet *const packet) {
+void RSVPHost::parse_resv(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Resv resv {};
@@ -225,22 +222,24 @@ void RSVPHost::parse_resv(const Packet *const packet) {
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
         if (resv.resv_confirm) {
-            output(0).push(generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key), resv));
+            auto packet {generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key), resv)};
+            ipencap(packet, resv.session->dest_addr, flow->filter_spec->src_addr);
+            output(0).push(packet);
         }
     };
 }
 
-void RSVPHost::parse_path_err(const Packet *const ) {
+void RSVPHost::parse_path_err(const unsigned char *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_resv_err(const Packet *const ) {
+void RSVPHost::parse_resv_err(const unsigned char *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_path_tear(const Packet *const packet) {
+void RSVPHost::parse_path_tear(const unsigned char *const packet) {
 
     // Get all the objects we need from the packet
     PathTear path_tear {};
@@ -250,18 +249,18 @@ void RSVPHost::parse_path_tear(const Packet *const packet) {
     const uint64_t session_key {SessionID::to_key(*path_tear.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH_TEAR message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+//    SessionStates& session {session_pair->value};
 
     // Check whether there is a receiver registered that matches the PATH_TEAR message's SenderTemplate object
     const SenderID sender_id {};
 };
 
-void RSVPHost::parse_resv_tear(const Packet *const ) {
+void RSVPHost::parse_resv_tear(const unsigned char *const ) {
 
     // TODO
 }
 
-void RSVPHost::parse_resv_conf(const Packet *const ) {
+void RSVPHost::parse_resv_conf(const unsigned char *const ) {
 
     // TODO
 }
@@ -375,7 +374,7 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
     auto temp {(unsigned char*) &(sender.t_spec)};
     RSVPSenderTSpec::write(temp, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
 
-    // Once initialised add the sender to the session
+    // Once initialised add the sender to the session and immediately send a PATH message
     session.senders.insert(sender_id.to_key(), sender);
 
     errh->message("Defined session %d sender %u", id, sender_id.to_key());
@@ -429,7 +428,8 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
                                            confirmation}};
             receiver.refresh_timer = new Timer {push_resv, data};
             receiver.refresh_timer->initialize(host);
-            receiver.refresh_timer->schedule_now();
+            receiver.refresh_timer->schedule_after_msec(s_refresh);
+            push_resv(receiver.refresh_timer, data);
         };
     }
 
@@ -494,11 +494,9 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     const auto sender_pair {session_pair->value.senders.find_pair(data->sender_id.to_key())};
     if (check(not sender_pair, "PATH message can't be sent; invalid sender ID received")) return;
 
-    // Set the destination address and port in the IPEncap element
-    data->host->set_ipencap(data->sender_id.source_address, data->session_id.destination_address);
-
     // Generate a new PATH message and push it
     const auto packet {data->host->generate_path(data->session_id, data->sender_id)};
+    data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
     data->host->output(0).push(packet);
 
     // Set the timer again
@@ -521,11 +519,9 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     const auto sender_pair {session.receivers.find_pair(data->sender_id.to_key())};
     if (check(not sender_pair, "RESV message can't be sent; invalid sender ID received")) return;
 
-    // Provide the IPEncap element with the correct addresses
-    data->host->set_ipencap(data->session_id.destination_address, sender_pair->value.prev_hop);
-
     // Generate a new RESV message and push it
     const auto packet {data->host->generate_resv(data->session_id, data->sender_id, data->confirm)};
+    data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
