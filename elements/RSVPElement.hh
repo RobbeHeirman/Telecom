@@ -15,9 +15,10 @@
 #include <click/timer.hh>
 
 
+
 CLICK_DECLS
 
-
+class RSVPNode;
 /**
  * Stores a sender template; similar to RSVPSenderTemplate but without the headers
  */
@@ -249,20 +250,29 @@ protected:
     uint64_t session_to_key(RSVPSession* session);
     uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
 
+
+    struct PathCallbackData {
+        RSVPNode* me;
+        uint64_t sender_key;
+        uint64_t session_key;
+    };
+
     /**
      * PathState is a struct for bookkeeping of the RSVP path sof state.
      * @member: prev_hop, notes the IP Unicast address of the prev hop, will be found in hop object of rsvp message.
      */
+
     struct PathState{
 
         ~PathState(){
             delete refresh_timer;
             delete timeout_timer;
+            delete path_call_back_data;
         }
 
         // Keys of state in the HashMap, timer functions need those
-        RSVPSession session;
         RSVPSenderTemplate sender_template;
+        RSVPSession session;
 
         IPAddress prev_hop; // prev_hop node
         Vector<RSVPPolicyData> policy_data; // Potential policy data
@@ -277,6 +287,7 @@ protected:
         // Keeping the timer ptr's so we can free them from the heap
         Timer* refresh_timer{nullptr};
         Timer* timeout_timer{nullptr};
+        PathCallbackData* path_call_back_data;
 
     };
 
