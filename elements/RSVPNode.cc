@@ -95,12 +95,18 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
 
+    // Making a state and filling it in
     PathState state;
     state.prev_hop = path.hop->address;
     for(int i = 0; i < path.policy_data.size() ; i++){
         state.policy_data.push_back(*(path.policy_data[i]));
     }
     state.t_spec = *(path.sender.tspec);
+
+    // Time values
+    state.R = this->calculate_refresh(path.time_values->refresh);
+    state.L = this->calculate_L(path.time_values->refresh);
+
     m_path_state[byte_sender][byte_session] = state;
 
     // TODO: NEEDS TO BE CHANGED TO SET IP DST DIRECTLY
@@ -342,6 +348,19 @@ float RSVPNode::calculate_L(float r){
 
 
     return (K + 0.5) * 1.5 * r; // See RFC on calculating L value
+}
+
+void RSVPNode::handle_path_refresh(Timer* timer, void* data){
+    // TODO: fill in
+}
+void RSVPNode::handle_path_time_out(Timer* timer, void* data){
+    // TODO: fill in
+}
+void RSVPNode::handle_reserve_refresh(Timer* timer, void* data){
+    //TODO: fill in
+}
+void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
+    //TODO: fill in
 }
 
 
