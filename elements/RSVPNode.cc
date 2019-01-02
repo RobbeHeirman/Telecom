@@ -333,9 +333,14 @@ bool RSVPNode::resv_ff_exists(const uint64_t &sender_key, const uint64_t &sessio
     return false;
 }
 
-float calculate_L(float r){
+float RSVPNode::calculate_refresh(float r) {
 
-    unsigned int K = 3; //Constant in function -> this is the default
+    return click_random(5, 15) / 10 * r; // See RFC
+}
+
+float RSVPNode::calculate_L(float r){
+
+
     return (K + 0.5) * 1.5 * r; // See RFC on calculating L value
 }
 

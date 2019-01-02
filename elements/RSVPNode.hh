@@ -57,6 +57,7 @@ private:
 
     bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key);
 
+    float calculate_refresh(float r);
     float calculate_L(float r);
 
     struct ReserveState {
@@ -67,6 +68,8 @@ private:
 
     Vector<IPAddress> m_interfaces;
     HashTable<uint64_t, HashTable <uint64_t, ReserveState>> m_ff_resv_states;
+
+    unsigned int K = 3; //Constant with default 3 (see RFC)
 };
 
 CLICK_ENDDECLS
