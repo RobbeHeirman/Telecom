@@ -130,6 +130,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         //Add the timer pointers to the struct
         state.refresh_timer = refresh;
         state.timeout_timer = timeout;
+        state.path_call_back_data = path_callback_data;
 
         m_path_state[byte_sender][byte_session] = state;
     }
@@ -216,9 +217,9 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                     //Add the timer pointers to the struct
                     r_state.refresh_timer = refresh;
                     r_state.timeout_timer = timeout;
+                    r_state.call_back_data = rsv_callback;
 
                     m_ff_resv_states[address_key][session_key] = r_state;
-
 
                 }
 
@@ -226,7 +227,6 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
                     // We modify resv state here
                     ReserveState& r_state = m_ff_resv_states[address_key][session_key];
-
                     //Fill in the reserve state data
                     r_state.session = *resv.session;
                     r_state.next_hop = resv.hop->address;
@@ -503,8 +503,6 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
     auto rsv = (ReserveCallbackData*) data;
     assert(rsv);
     rsv->me->time_out_reserve_state(rsv->sender_key, rsv->session_key, timer);
-
-    delete rsv;
 }
 
 

@@ -39,9 +39,22 @@ public:
     void push(int port, Packet* p);
 private:
 
+    struct ReserveCallbackData {
+        RSVPNode* me;
+
+        uint64_t sender_key;
+        uint64_t session_key;
+    };
+
+
     // Used to bookkeep Reservation state
     struct ReserveState {
 
+        ~ReserveState(){
+            delete refresh_timer;
+            delete timeout_timer;
+            delete call_back_data;
+        }
         RSVPSession session;
         IPAddress next_hop; // set in reservation state
         RSVPFlowSpec flowSpec;
@@ -50,21 +63,9 @@ private:
         float L;
 
         bool is_timeout = true;
-        Timer* refresh_timer;
-        Timer* timeout_timer;
-    };
-
-    struct PathCallbackData {
-        RSVPNode* me;
-        uint64_t sender_key;
-        uint64_t session_key;
-    };
-
-    struct ReserveCallbackData {
-        RSVPNode* me;
-
-        uint64_t sender_key;
-        uint64_t session_key;
+        Timer* refresh_timer{nullptr};
+        Timer* timeout_timer{nullptr};
+        ReserveCallbackData* call_back_data{nullptr}; // Needed to cleanly remove
     };
 
     /**
