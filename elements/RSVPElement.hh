@@ -12,6 +12,7 @@
 #include <click/vector.hh>
 #include "RSVPStructs.hh"
 #include <click/error.hh>
+#include <click/timer.hh>
 
 
 CLICK_DECLS
@@ -258,6 +259,13 @@ protected:
         IPAddress next_hop; // set in reservation state
         Vector<RSVPPolicyData> policy_data; // Potential policy data
         RSVPSenderTSpec t_spec; // TSpec element
+
+        // Timing values
+        float R;
+        float L;
+
+        Timer* send;
+        Timer* lifetime;
 
     };
 

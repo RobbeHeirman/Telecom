@@ -49,9 +49,9 @@ sleep 1
 # Confirm the reservation in host 2
 rsvp HOST2 reserve $ID, CONF true
 
-# Wait a short while and release the RSVP connection
-#sleep 5
-# RESV TEAR
-#rsvp HOST2 release $ID
-# PATH TEAR
-#rsvp HOST1 release $ID
+Wait a short while and release the RSVP connection
+sleep 5
+ #RESV TEAR
+rsvp HOST2 release $ID
+#PATH TEAR
+rsvp HOST1 release $ID

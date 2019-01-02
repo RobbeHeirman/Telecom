@@ -7,7 +7,6 @@
 
 #include <string.h>
 #include <sys/types.h>
-#include <click/timer.hh>
 #include <click/error.hh>
 #include <click/element.hh>
 #include <click/hashmap.hh>
