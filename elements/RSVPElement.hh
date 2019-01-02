@@ -261,8 +261,8 @@ protected:
         }
 
         // Keys of state in the HashMap, timer functions need those
-        RSVPSession session;
         RSVPSenderTemplate sender_template;
+        RSVPSession session;
 
         IPAddress prev_hop; // prev_hop node
         Vector<RSVPPolicyData> policy_data; // Potential policy data

@@ -94,20 +94,64 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
+    if(path_state_exists(byte_sender, byte_session)) {
 
-    // Making a state and filling it in
-    PathState state;
-    state.prev_hop = path.hop->address;
-    for(int i = 0; i < path.policy_data.size() ; i++){
-        state.policy_data.push_back(*(path.policy_data[i]));
+        // Making a state and filling it in
+        PathState state;
+        state.sender_template = *(path.sender.sender);
+        path.session = path.session;
+        state.prev_hop = path.hop->address;
+        for (int i = 0; i < path.policy_data.size(); i++) {
+            state.policy_data.push_back(*(path.policy_data[i]));
+        }
+        state.t_spec = *(path.sender.tspec);
+
+        // Time values
+        state.R = this->calculate_refresh(path.time_values->refresh);
+        state.L = this->calculate_L(path.time_values->refresh);
+
+        //Timing the whole thing.
+        // First we create the callback data.
+        PathCallbackData *path_callback_data = new PathCallbackData();
+        path_callback_data->session_key = byte_session;
+        path_callback_data->sender_key = byte_sender;
+        path_callback_data->me = this;
+
+        // Create the refresh and timeout timers
+        Timer *refresh = new Timer(&RSVPNode::handle_path_refresh, path_callback_data);
+        Timer *timeout = new Timer(&RSVPNode::handle_path_time_out, path_callback_data);
+        refresh->initialize(this);
+        timeout->initialize(this);
+
+        // We schedule the first calls
+        refresh->schedule_after_msec(state.R * 100);
+        timeout->schedule_after_msec(state.L * 100);
+
+        //Add the timer pointers to the struct
+        state.refresh_timer = refresh;
+        state.timeout_timer = timeout;
+
+        m_path_state[byte_sender][byte_session] = state;
     }
-    state.t_spec = *(path.sender.tspec);
+    else{
 
-    // Time values
-    //state.R = this->calculate_refresh(path.time_values->refresh);
-    //state.L = this->calculate_L(path.time_values->refresh);
+        PathState& state = m_path_state[byte_sender][byte_session];
 
-    m_path_state[byte_sender][byte_session] = state;
+        state.sender_template = *(path.sender.sender);
+        path.session = path.session;
+        state.prev_hop = path.hop->address;
+        for (int i = 0; i < path.policy_data.size(); i++) {
+            state.policy_data.push_back(*(path.policy_data[i]));
+        }
+        state.t_spec = *(path.sender.tspec);
+
+        // Time values
+        state.R = this->calculate_refresh(path.time_values->refresh);
+        state.L = this->calculate_L(path.time_values->refresh);
+
+        //PathState had a refresh message
+        state.is_timeout = false;
+    }
 
     // TODO: NEEDS TO BE CHANGED TO SET IP DST DIRECTLY
     // Tell the IPEncapModule we keep on routing to the receiver
