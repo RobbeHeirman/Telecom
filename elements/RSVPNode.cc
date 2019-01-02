@@ -351,7 +351,11 @@ float RSVPNode::calculate_L(float r){
 }
 
 void RSVPNode::handle_path_refresh(Timer* timer, void* data){
-    // TODO: fill in
+
+    PathCallbackData* path = (PathCallbackData*) data;
+    assert(path);
+    path->me->refresh_path_state(path->path_state):;
+
 }
 void RSVPNode::handle_path_time_out(Timer* timer, void* data){
     // TODO: fill in
@@ -363,19 +367,25 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
     //TODO: fill in
 }
 
+
+//***********************************************
+
+
 void RSVPNode::refresh_path_state(PathState* path_state){
     //TODO: fill in
 }
+
 void RSVPNode::time_out_path_state(PathState* path_state){
     //TODO: fill in
 }
-void RSVPNode::refresh_reserve_state(ReserveState* resv){
-    //TODO: fill in
-}
+
 void RSVPNode::time_out_reserve_state(ReserveState* resv){
     //TODO: fill in
 }
 
+void RSVPNode::refresh_reserve_state(ReserveState* resv){
+    //TODO: fill in
+}
 
 CLICK_ENDDECLS
 EXPORT_ELEMENT(RSVPNode)
