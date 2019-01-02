@@ -256,13 +256,8 @@ protected:
         IPAddress next_hop; // set in reservation state
         Vector<RSVPPolicyData> policy_data; // Potential policy data
         RSVPSenderTSpec t_spec; // TSpec element
-
-        // Timing values
-        float R;
-        float L;
-
-        Timer* send;
-        Timer* lifetime;
+        //If timeout timer passes if this is true then the pathState timed out and should be deleted
+        bool timeout = true;
 
     };
 

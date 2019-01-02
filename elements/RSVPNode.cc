@@ -104,8 +104,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     state.t_spec = *(path.sender.tspec);
 
     // Time values
-    state.R = this->calculate_refresh(path.time_values->refresh);
-    state.L = this->calculate_L(path.time_values->refresh);
+    //state.R = this->calculate_refresh(path.time_values->refresh);
+    //state.L = this->calculate_L(path.time_values->refresh);
 
     m_path_state[byte_sender][byte_session] = state;
 
@@ -354,17 +354,27 @@ void RSVPNode::handle_path_refresh(Timer* timer, void* data){
 
     PathCallbackData* path = (PathCallbackData*) data;
     assert(path);
-    path->me->refresh_path_state(path->path_state):;
+    path->me->refresh_path_state(path->path_state);
 
 }
 void RSVPNode::handle_path_time_out(Timer* timer, void* data){
-    // TODO: fill in
+
+    auto path = (PathCallbackData*) data;
+    assert(path);
+    path->me->time_out_path_state(path->path_state);
 }
+
 void RSVPNode::handle_reserve_refresh(Timer* timer, void* data){
-    //TODO: fill in
+
+    auto rsv = (ReserveCallbackData*) data;
+    assert(rsv);
+    rsv->me->refresh_reserve_state(rsv->reserve_state);
 }
 void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
-    //TODO: fill in
+
+    auto rsv = (ReserveCallbackData*) data;
+    assert(rsv);
+    rsv->me->time_out_reserve_state(rsv->reserve_state);
 }
 
 
