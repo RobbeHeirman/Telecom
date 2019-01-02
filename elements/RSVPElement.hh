@@ -265,7 +265,6 @@ protected:
         RSVPSenderTemplate sender_template;
 
         IPAddress prev_hop; // prev_hop node
-        IPAddress next_hop; // set in reservation state
         Vector<RSVPPolicyData> policy_data; // Potential policy data
         RSVPSenderTSpec t_spec; // TSpec element
 

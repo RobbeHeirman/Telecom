@@ -42,8 +42,10 @@ private:
     // Used to bookkeep Reservation state
     struct ReserveState {
 
-        // Simple for now
+        RSVPSession session;
+        IPAddress next_hop; // set in reservation state
         RSVPFlowSpec flowSpec;
+        RSVPFilterSpec filterSpec;
         float R;
         float L;
     };
@@ -100,6 +102,7 @@ private:
 
     //Some packet generation
     WritablePacket* generate_path(PathState* state);
+    WritablePacket* generate_resv(ReserveState& r_state);
 
 private:
     Vector<IPAddress> m_interfaces;
