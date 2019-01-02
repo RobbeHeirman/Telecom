@@ -50,12 +50,15 @@ private:
 
     struct PathCallbackData {
         RSVPNode* me;
-        PathState* path_state;
+        uint64_t sender_key;
+        uint64_t session_key;
     };
 
     struct ReserveCallbackData {
         RSVPNode* me;
-        ReserveState* reserve_state;
+
+        uint64_t sender_key;
+        uint64_t session_key;
     };
 
     /**
@@ -89,10 +92,10 @@ private:
     static void handle_reserve_time_out(Timer* timer, void* data);
 
     //Refresh and timeout states
-    void refresh_path_state(PathState* path_state, Timer* t);
-    void time_out_path_state(PathState* path_state, Timer* t);
-    void refresh_reserve_state(ReserveState* resv, Timer* t);
-    void time_out_reserve_state(ReserveState* resv, Timer* t);
+    void refresh_path_state(uint64_t sender, uint64_t session, Timer* t);
+    void time_out_path_state(uint64_t sender, uint64_t session, Timer* t);
+    void refresh_reserve_state(uint64_t sender, uint64_t session, Timer* t);
+    void time_out_reserve_state(uint64_t sender, uint64_t session, Timer* t);
 
     //Some packet generation
     WritablePacket* generate_path(PathState* state);

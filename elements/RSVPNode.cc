@@ -354,27 +354,27 @@ void RSVPNode::handle_path_refresh(Timer* timer, void* data){
 
     PathCallbackData* path = (PathCallbackData*) data;
     assert(path);
-    path->me->refresh_path_state(path->path_state, timer);
+    path->me->refresh_path_state(path->sender_key, path->session_key, timer);
 
 }
 void RSVPNode::handle_path_time_out(Timer* timer, void* data){
 
     auto path = (PathCallbackData*) data;
     assert(path);
-    path->me->time_out_path_state(path->path_state, timer);
+    path->me->time_out_path_state(path->sender_key, path->session_key, timer);
 }
 
 void RSVPNode::handle_reserve_refresh(Timer* timer, void* data){
 
     auto rsv = (ReserveCallbackData*) data;
     assert(rsv);
-    rsv->me->refresh_reserve_state(rsv->reserve_state, timer);
+    rsv->me->refresh_reserve_state(rsv->sender_key, rsv->session_key, timer);
 }
 void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
 
     auto rsv = (ReserveCallbackData*) data;
     assert(rsv);
-    rsv->me->time_out_reserve_state(rsv->reserve_state, timer);
+    rsv->me->time_out_reserve_state(rsv->sender_key, rsv->session_key, timer);
 
     delete data;
 }
@@ -383,13 +383,9 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
 //***********************************************
 
 
-void RSVPNode::refresh_path_state(RSVPElement::PathState* path_state, Timer* t){
-
-    uint64_t sender_key{this->sender_template_to_key(&path_state->sender_template)};
-    uint64_t session_key{this->session_to_key(&path_state->session)};
+void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Timer* t){
 
     if(this->path_state_exists(sender_key, session_key)){
-
         //Sending a refresh path message
         //TODO: the SetIPEncap needs to be changed here aswell.
         PathState* state = &m_path_state[sender_key][session_key];
@@ -398,22 +394,26 @@ void RSVPNode::refresh_path_state(RSVPElement::PathState* path_state, Timer* t){
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
-        t->reschedule_after_msec(path_state->R * 100);
+        t->reschedule_after_msec(state->R * 100);
+    }
+}
+
+void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Timer* t){
+
+    // We find the keys of this session
+
+    // we check if this state is still in our table
+    if(this->path_state_exists(sender_key, session_key)){
 
 
     }
-
 }
 
-void RSVPNode::time_out_path_state(PathState* path_state, Timer* t){
+void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
     //TODO: fill in
 }
 
-void RSVPNode::time_out_reserve_state(ReserveState* resv, Timer* t){
-    //TODO: fill in
-}
-
-void RSVPNode::refresh_reserve_state(ReserveState* resv, Timer* t){
+void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
     //TODO: fill in
 }
 
