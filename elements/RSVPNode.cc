@@ -354,47 +354,93 @@ void RSVPNode::handle_path_refresh(Timer* timer, void* data){
 
     PathCallbackData* path = (PathCallbackData*) data;
     assert(path);
-    path->me->refresh_path_state(path->path_state);
+    path->me->refresh_path_state(path->path_state, timer);
 
 }
 void RSVPNode::handle_path_time_out(Timer* timer, void* data){
 
     auto path = (PathCallbackData*) data;
     assert(path);
-    path->me->time_out_path_state(path->path_state);
+    path->me->time_out_path_state(path->path_state, timer);
 }
 
 void RSVPNode::handle_reserve_refresh(Timer* timer, void* data){
 
     auto rsv = (ReserveCallbackData*) data;
     assert(rsv);
-    rsv->me->refresh_reserve_state(rsv->reserve_state);
+    rsv->me->refresh_reserve_state(rsv->reserve_state, timer);
 }
 void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
 
     auto rsv = (ReserveCallbackData*) data;
     assert(rsv);
-    rsv->me->time_out_reserve_state(rsv->reserve_state);
+    rsv->me->time_out_reserve_state(rsv->reserve_state, timer);
+
+    delete data;
 }
 
 
 //***********************************************
 
 
-void RSVPNode::refresh_path_state(PathState* path_state){
+void RSVPNode::refresh_path_state(RSVPElement::PathState* path_state, Timer* t){
+
+    uint64_t sender_key{this->sender_template_to_key(&path_state->sender_template)};
+    uint64_t session_key{this->session_to_key(&path_state->session)};
+
+    if(this->path_state_exists(sender_key, session_key)){
+
+        //Sending a refresh path message
+        //TODO: the SetIPEncap needs to be changed here aswell.
+        PathState* state = &m_path_state[sender_key][session_key];
+        WritablePacket* p = this->generate_path(state);
+        this->set_ipencap(state->sender_template.src_addr, state->session.dest_addr);
+        output(0).push(p);
+
+        //And now we need to reschedule the timer, based on local R value for this session
+        t->reschedule_after_msec(path_state->R * 100);
+
+
+    }
+
+}
+
+void RSVPNode::time_out_path_state(PathState* path_state, Timer* t){
     //TODO: fill in
 }
 
-void RSVPNode::time_out_path_state(PathState* path_state){
+void RSVPNode::time_out_reserve_state(ReserveState* resv, Timer* t){
     //TODO: fill in
 }
 
-void RSVPNode::time_out_reserve_state(ReserveState* resv){
+void RSVPNode::refresh_reserve_state(ReserveState* resv, Timer* t){
     //TODO: fill in
 }
 
-void RSVPNode::refresh_reserve_state(ReserveState* resv){
-    //TODO: fill in
+WritablePacket* RSVPNode::generate_path(PathState* state) {
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)     + sizeof(RSVPSession)        + sizeof(RSVPHop)
+                             + sizeof(RSVPTimeValues) + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
+    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader        ::write(pos_ptr, RSVPHeader::Path);
+    RSVPSession       ::write(pos_ptr, state->session.dest_addr, state->session.proto, state->session.dest_port);
+    RSVPHop           ::write(pos_ptr, state->prev_hop); // doesn't matter will be replaced later by correct outgoing interface
+    RSVPTimeValues    ::write(pos_ptr, state->R); // R value of this node needs to be passed to the next node.
+    RSVPSenderTemplate::write(pos_ptr, state->sender_template.src_addr, state->sender_template.src_port);
+    RSVPSenderTSpec   ::write(pos_ptr, state->t_spec.r, state->t_spec.b, state->t_spec.p,  state->t_spec.m , state->t_spec.M);
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader        ::complete(packet, size);
+    return packet;
 }
 
 CLICK_ENDDECLS

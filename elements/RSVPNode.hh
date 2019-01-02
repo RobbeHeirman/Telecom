@@ -89,10 +89,13 @@ private:
     static void handle_reserve_time_out(Timer* timer, void* data);
 
     //Refresh and timeout states
-    void refresh_path_state(PathState* path_state);
-    void time_out_path_state(PathState* path_state);
-    void refresh_reserve_state(ReserveState* resv);
-    void time_out_reserve_state(ReserveState* resv);
+    void refresh_path_state(PathState* path_state, Timer* t);
+    void time_out_path_state(PathState* path_state, Timer* t);
+    void refresh_reserve_state(ReserveState* resv, Timer* t);
+    void time_out_reserve_state(ReserveState* resv, Timer* t);
+
+    //Some packet generation
+    WritablePacket* generate_path(PathState* state);
 
 private:
     Vector<IPAddress> m_interfaces;
