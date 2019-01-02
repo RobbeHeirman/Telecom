@@ -154,15 +154,15 @@ void RSVPHost::parse_path(const Packet *const packet) {
     Path path {};
     if (check(not find_path_ptrs(packet, path), "RSVPHost received an ill-formed PATH message")) return;
 
-    // Check whether the session's destination address and port match any of the host's sessions
-    const SessionID session_id {path.session->dest_addr, ntohs(path.session->dest_port), path.session->proto};
-    auto session_pair {m_sessions.find_pair(session_id.to_key())};
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*path.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH message that doesn't seem to belong here")) return;
     Session& local_session {session_pair->value};
 
     // Construct a SenderID object and check whether this is the first PATH message received from that sender
-    const SenderID sender_id {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
-    auto sender_pair {local_session.receivers.find_pair(sender_id.to_key())};
+    const uint64_t sender_key {SenderID::to_key(*path.sender.sender)};
+    auto sender_pair {local_session.receivers.find_pair(sender_key)};
     State* state;
 
     if (sender_pair) {
@@ -176,7 +176,8 @@ void RSVPHost::parse_path(const Packet *const packet) {
         State receiver;
 
         // Create a new lifetime timer and initialise it (scheduling happens at the end of the function)
-        receiver.lifetime = new Timer {tear_state, new TearData {this, session_id, sender_id, false}};
+        const auto data {new TearData {this, SessionID::from_key(session_key), SenderID::from_key(sender_key), false}};
+        receiver.lifetime = new Timer {tear_state, data};
         receiver.lifetime->initialize(this);
         // The send timer doesn't have to be created just yet, we wait on the reserve handler for that
         receiver.send = nullptr;
@@ -188,7 +189,7 @@ void RSVPHost::parse_path(const Packet *const packet) {
         }
         receiver.sender_tspec = *(path.sender.tspec);
 
-        local_session.receivers.insert(sender_id.to_key(), receiver);
+        local_session.receivers.insert(sender_key, receiver);
         state = &receiver;
     }
 
@@ -203,15 +204,16 @@ void RSVPHost::parse_resv(const Packet *const packet) {
     Resv resv {};
     if (check(not find_resv_ptrs(packet, resv), "RSVPHost received an ill-formed RESV message")) return;
 
-    // Check whether the session's destination address and port match any of the host's sessions
-    const SessionID session_id {resv.session->dest_addr, ntohs(resv.session->dest_port), resv.session->proto};
-    auto session_pair {m_sessions.find_pair(session_id.to_key())};
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*resv.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV message that doesn't seem to belong here")) return;
     Session& session {session_pair->value};
 
     // Check whether there are senders registered for the session that match the RESV message's flow descriptors
     for (auto flow {resv.flow_descriptor_list.begin()}; flow < resv.flow_descriptor_list.end(); ++flow) {
-        const uint64_t sender_key {SenderID::to_key(*(flow->filter_spec))};
+        const uint64_t sender_key {SenderID::to_key(*flow->filter_spec)};
+
         auto sender_pair {session.senders.find_pair(sender_key)};
         if (check(not sender_pair,
                 "RSVPHost received RESV message with a flow descriptor that doesn't match any sender")) return;
@@ -222,7 +224,7 @@ void RSVPHost::parse_resv(const Packet *const packet) {
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
         if (resv.resv_confirm) {
-            output(0).push(generate_resv_conf(session_id, SenderID::from_key(sender_key), resv));
+            output(0).push(generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key), resv));
         }
     };
 }
@@ -237,10 +239,21 @@ void RSVPHost::parse_resv_err(const Packet *const ) {
     // TODO
 }
 
-void RSVPHost::parse_path_tear(const Packet *const ) {
+void RSVPHost::parse_path_tear(const Packet *const packet) {
 
-    // TODO
-}
+    // Get all the objects we need from the packet
+    PathTear path_tear {};
+    if (check(not find_path_tear_ptrs(packet, path_tear), "RSVPHost received an ill-formed PATH_TEAR message")) return;
+
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*path_tear.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
+    if (check(not session_pair, "RSVPHost received PATH_TEAR message that doesn't seem to belong here")) return;
+    Session& session {session_pair->value};
+
+    // Check whether there is a receiver registered that matches the PATH_TEAR message's SenderTemplate object
+    const SenderID sender_id {};
+};
 
 void RSVPHost::parse_resv_tear(const Packet *const ) {
 

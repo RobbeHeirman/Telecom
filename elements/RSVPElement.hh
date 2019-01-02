@@ -25,11 +25,11 @@ struct SenderID
 {
     in_addr source_address;
     uint16_t _ {0};     // 2 bytes padding
-    uint16_t source_port;   // the network representation of the port (endianness)
+    uint16_t source_port;   // the host representation of the port (endianness)
 
     // Constructors
     SenderID(): source_address {0}, source_port {0} {}
-    SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {htons(port)} {}
+    SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {port} {}
 
     /**
      * Turns a SenderID object into a key usable in maps, tables...
@@ -50,6 +50,7 @@ struct SenderID
 
         // Make sure the 2 unused bytes are always 0 and that the RSVP object header isn't included in the key
         sender._ = 0;
+        sender.src_port = ntohs(sender.src_port);
         return *(uint64_t*)((RSVPObject*)(&sender) + 1);
     }
 
@@ -59,6 +60,7 @@ struct SenderID
     static inline uint64_t to_key(RSVPFilterSpec sender) {
 
         sender._ = 0;
+        sender.src_port = ntohs(sender.src_port);
         return *(uint64_t*)((RSVPObject*)(&sender) + 1);
     }
 
@@ -78,14 +80,14 @@ struct SenderID
 struct SessionID
 {
     in_addr destination_address;
-    uint16_t destination_port;
-    uint8_t _ {0};  // 1 byte padding
     uint8_t proto;
+    uint8_t _ {0};  // 1 byte padding
+    uint16_t destination_port;
 
     // Constructors
-    SessionID(): destination_address {0}, destination_port {0}, proto {0} {}
+    SessionID(): destination_address {0}, proto {0}, destination_port {0} {}
     SessionID(const in_addr address, const uint16_t port, const uint8_t proto)
-            : destination_address {address}, destination_port {htons(port)}, proto {proto} {}
+            : destination_address {address}, proto {proto}, destination_port {port} {}
 
     /**
      * Turns a SessionID object into a key usable in maps, tables...
@@ -100,8 +102,9 @@ struct SessionID
      */
     static inline uint64_t to_key(RSVPSession session) {
 
-        // Make sure the flags are always 0 and that the RSVP object header isn't included in the key
+        // Make sure the flags are always 0 and that the port is in the correct endianness
         session.flags = RSVPSession::None;
+        session.dest_port = ntohs(session.dest_port);
         return *(uint64_t*)((RSVPObject*)(&session) + 1);
     }
 
