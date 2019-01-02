@@ -90,6 +90,8 @@ private:
     struct State
     {
         in_addr hop_address;
+        Vector<RSVPPolicyData> policy_data;
+        RSVPSenderTSpec sender_tspec;
         Timer* send;
         Timer* lifetime;
     };
