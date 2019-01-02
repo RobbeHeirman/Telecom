@@ -94,7 +94,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
     }
-    if(path_state_exists(byte_sender, byte_session)) {
+    if(!path_state_exists(byte_sender, byte_session)) {
 
         // Making a state and filling it in
         PathState state;
@@ -143,13 +143,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         for (int i = 0; i < path.policy_data.size(); i++) {
             state.policy_data.push_back(*(path.policy_data[i]));
         }
-        state.t_spec = *(path.sender.tspec);
 
-        // Time values
-        state.R = this->calculate_refresh(path.time_values->refresh);
-        state.L = this->calculate_L(path.time_values->refresh);
 
-        //PathState had a refresh message
         state.is_timeout = false;
     }
 
@@ -184,17 +179,71 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                     m_ff_resv_states[address_key] = HashTable < uint64_t, ReserveState >();
                 }
 
+                // We don't have this reservation in our reservation map
+                if(!resv_ff_exists(address_key, session_key)){
 
-                // We add a new resv state here, modification also happens this way
-                ReserveState r_state;
-                r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
-                r_state.next_hop = resv.hop->address;
-                m_ff_resv_states[address_key][session_key] = r_state;
+                    // We add a new resv state here
+                    ReserveState r_state;
 
+                    //Fill in the reserve state data
+                    r_state.session = *resv.session;
+                    r_state.next_hop = resv.hop->address;
+                    r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                    r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
+                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                    r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                    // Time values
+                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                    r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                    // Create the callback data
+                    ReserveCallbackData * rsv_callback = new ReserveCallbackData;
+                    rsv_callback->sender_key = address_key;
+                    rsv_callback->session_key = session_key;
+                    rsv_callback->me = this;
+
+                    // Create the refresh and timeout timers
+                    Timer *refresh = new Timer(&RSVPNode::handle_reserve_refresh, rsv_callback);
+                    Timer *timeout = new Timer(&RSVPNode::handle_reserve_time_out, rsv_callback);
+                    refresh->initialize(this);
+                    timeout->initialize(this);
+
+                    // We schedule the first calls
+                    refresh->schedule_after_msec(r_state.R * 100);
+                    timeout->schedule_after_msec(r_state.L * 100);
+
+                    //Add the timer pointers to the struct
+                    r_state.refresh_timer = refresh;
+                    r_state.timeout_timer = timeout;
+
+                    m_ff_resv_states[address_key][session_key] = r_state;
+
+
+                }
+
+                else{
+
+                    // We modify resv state here
+                    ReserveState& r_state = m_ff_resv_states[address_key][session_key];
+
+                    //Fill in the reserve state data
+                    r_state.session = *resv.session;
+                    r_state.next_hop = resv.hop->address;
+                    r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                    r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
+                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                    r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                    // Time values
+                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                    r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                    r_state.is_timeout = false;
+
+                }
                 // need PHop from pathstate to forward
                 PathState &state = m_path_state[address_key][session_key];
-
-
                 //Signaling that the IPEncap with the correct src and dst addresses.
                 // TODO: THIS IS NOT GOOD, Shouldn't strip IP header and place new one
                 set_ipencap(m_interfaces[port], state.prev_hop);

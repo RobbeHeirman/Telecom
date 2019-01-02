@@ -49,9 +49,9 @@ private:
         float R;
         float L;
 
-        bool is_timeout;
-        Timer* refresh;
-        Timer* timeout;
+        bool is_timeout = true;
+        Timer* refresh_timer;
+        Timer* timeout_timer;
     };
 
     struct PathCallbackData {
