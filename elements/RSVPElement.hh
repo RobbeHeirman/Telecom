@@ -255,17 +255,28 @@ protected:
      */
     struct PathState{
 
+        ~PathState(){
+            delete refresh_timer;
+            delete timeout_timer;
+        }
+
+        // Keys of state in the HashMap, timer functions need those
+        RSVPSession session;
+        RSVPSenderTemplate sender_template;
+
         IPAddress prev_hop; // prev_hop node
-        IPAddress next_hop; // set in reservation state
         Vector<RSVPPolicyData> policy_data; // Potential policy data
         RSVPSenderTSpec t_spec; // TSpec element
 
-        // Timing values
+        //If timeout timer passes if this is true then the pathState timed out and should be deleted
+        bool is_timeout = true;
+
         float R;
         float L;
 
-        Timer* send;
-        Timer* lifetime;
+        // Keeping the timer ptr's so we can free them from the heap
+        Timer* refresh_timer{nullptr};
+        Timer* timeout_timer{nullptr};
 
     };
 

@@ -42,20 +42,25 @@ private:
     // Used to bookkeep Reservation state
     struct ReserveState {
 
-        // Simple for now
+        RSVPSession session;
+        IPAddress next_hop; // set in reservation state
         RSVPFlowSpec flowSpec;
+        RSVPFilterSpec filterSpec;
         float R;
         float L;
     };
 
     struct PathCallbackData {
         RSVPNode* me;
-        PathState* path_state;
+        uint64_t sender_key;
+        uint64_t session_key;
     };
 
     struct ReserveCallbackData {
         RSVPNode* me;
-        ReserveState* reserve_state;
+
+        uint64_t sender_key;
+        uint64_t session_key;
     };
 
     /**
@@ -71,6 +76,7 @@ private:
     bool handle_confirmation_message(Packet* p, int port); // Till here
 
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
+    bool delete_state(const uint64_t& sender_key, const uint64_t& session_key);
 
     // Checking states
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
@@ -89,10 +95,14 @@ private:
     static void handle_reserve_time_out(Timer* timer, void* data);
 
     //Refresh and timeout states
-    void refresh_path_state(PathState* path_state);
-    void time_out_path_state(PathState* path_state);
-    void refresh_reserve_state(ReserveState* resv);
-    void time_out_reserve_state(ReserveState* resv);
+    void refresh_path_state(uint64_t sender, uint64_t session, Timer* t);
+    void time_out_path_state(uint64_t sender, uint64_t session, Timer* t);
+    void refresh_reserve_state(uint64_t sender, uint64_t session, Timer* t);
+    void time_out_reserve_state(uint64_t sender, uint64_t session, Timer* t);
+
+    //Some packet generation
+    WritablePacket* generate_path(PathState* state);
+    WritablePacket* generate_resv(ReserveState& r_state);
 
 private:
     Vector<IPAddress> m_interfaces;
