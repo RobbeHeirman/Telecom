@@ -76,7 +76,7 @@ WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const Sende
     RSVPHeader        ::write(pos_ptr, RSVPHeader::Path);
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop           ::write(pos_ptr, sender_id.source_address);
-    RSVPTimeValues    ::write(pos_ptr, s_refresh);
+    RSVPTimeValues    ::write(pos_ptr, R);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
     RSVPSenderTSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
 
@@ -103,7 +103,7 @@ WritablePacket* RSVPHost::generate_resv(const SessionID& session_id, const Sende
     RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPTimeValues::write(pos_ptr, s_refresh);
+    RSVPTimeValues::write(pos_ptr, R);
     if (confirm) {
         RSVPResvConfirm::write(pos_ptr, session_id.destination_address);
     }
@@ -172,8 +172,8 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
         const SenderID sender_id {SenderID::from_key(sender_key)};
 
         // Create new timers and initialise them (scheduling happens at the end of the function or in a handler)
-        const auto tear_data {new TearData {this, session_id, sender_id, false}};
-        receiver.timeout_timer = new Timer {tear_state, tear_data};
+        receiver.tear_data = new TearData {this, session_id, sender_id, false};
+        receiver.timeout_timer = new Timer {tear_state, receiver.tear_data};
         receiver.timeout_timer->initialize(this);
         receiver.refresh_timer = nullptr;
         // If the send timer is still zero push_resv knows there it hasn't sent a RESV message yet
@@ -249,10 +249,17 @@ void RSVPHost::parse_path_tear(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*path_tear.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH_TEAR message that doesn't seem to belong here")) return;
-//    SessionStates& session {session_pair->value};
+    SessionStates& session {session_pair->value};
 
     // Check whether there is a receiver registered that matches the PATH_TEAR message's SenderTemplate object
-    const SenderID sender_id {};
+    const uint64_t sender_key {SenderID::to_key(*path_tear.sender_template)};
+    auto sender_pair {session.receivers.find_pair(sender_key)};
+    if (check(not session_pair,
+            "RSVPHost received PATH_TEAR message from a sender that is not registered to the session")) return;
+    PathState& state {sender_pair->value};
+
+    // Reschedule the state's timeout timer to immediately trigger
+    state.timeout_timer->schedule_now();
 };
 
 void RSVPHost::parse_resv_tear(const unsigned char *const ) {
@@ -353,21 +360,21 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
         return errh->warning("Sender with this source address and port already exists");
     }
 
-    // Prepare the data for the new sender's timers
-    const auto path_data {new PathData {host, session_id, sender_id}};
-    const auto tear_data {new TearData {host, session_id, sender_id, true}};
-
     // Create a new sender object
     PathState sender;
     sender.policy_data = Vector<RSVPPolicyData> {};
 
+    // Prepare the data for the new sender's timers
+    sender.send_data = (void*) new PathData {host, session_id, sender_id};
+    sender.tear_data = new TearData {host, session_id, sender_id, true};
+
     // Create, initialise and add new timers for/to the sender
-    sender.refresh_timer = new Timer {push_path, path_data};
+    sender.refresh_timer = new Timer {push_path, sender.send_data};
     sender.refresh_timer->initialize(host);
     sender.refresh_timer->schedule_now();
-    sender.timeout_timer = new Timer {tear_state, tear_data};
+    sender.timeout_timer = new Timer {tear_state, sender.tear_data};
     sender.timeout_timer->initialize(host);
-    sender.timeout_timer->schedule_after_msec(6 * s_refresh);
+    sender.timeout_timer->schedule_after_msec((K + 0.5) * 1.5 * R);
 
     // Create a new SenderTSpec object and add it as well
     sender.t_spec = RSVPSenderTSpec {};
@@ -424,12 +431,12 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
 
         // Initialise a new timer if the receiver hasn't sent any RESV messages yet
         if (not receiver.refresh_timer) {
-            const auto data {new ResvData {host, SessionID::from_key(session_id), SenderID::from_key(iter.key()),
-                                           confirmation}};
-            receiver.refresh_timer = new Timer {push_resv, data};
+            receiver.send_data = (void*) new ResvData {host, SessionID::from_key(session_id),
+                                                       SenderID::from_key(iter.key()), confirmation};
+            receiver.refresh_timer = new Timer {push_resv, receiver.send_data};
             receiver.refresh_timer->initialize(host);
-            receiver.refresh_timer->schedule_after_msec(s_refresh);
-            push_resv(receiver.refresh_timer, data);
+            receiver.refresh_timer->schedule_after_msec(R);
+            push_resv(receiver.refresh_timer, receiver.send_data);
         };
     }
 
@@ -500,7 +507,7 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again
-    timer->reschedule_after_msec(s_refresh);
+    timer->reschedule_after_msec(R);
 }
 
 void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
@@ -525,7 +532,7 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
-    timer->reschedule_after_msec(s_refresh);
+    timer->reschedule_after_msec(R);
     data->confirm = false;
 }
 

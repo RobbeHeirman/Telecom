@@ -92,6 +92,9 @@ private:
 
         Timer* timeout_timer;
         Timer* refresh_timer;
+
+        TearData* tear_data;
+        void* send_data;
     };
     typedef HashMap<uint64_t, PathState> StateMap;
     struct SessionStates
@@ -106,12 +109,14 @@ private:
     SessionIDMap m_session_ids;
 
     // Default values for RSVP messages
-    static constexpr uint32_t s_refresh {10000};
     static constexpr float s_bucket_rate {10000};
     static constexpr float s_bucket_size {1000};
     static constexpr float s_peak_rate {100000};
     static constexpr uint32_t s_min_unit {100};
     static constexpr uint32_t s_max_size {1500};
+
+    static constexpr uint32_t R {10000};    // TODO set to 30000 (10000 for testing)
+    static constexpr uint8_t K {3};
 };
 
 

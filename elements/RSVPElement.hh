@@ -21,6 +21,11 @@ CLICK_DECLS
 class RSVPNode;
 /**
  * Stores a sender template; similar to RSVPSenderTemplate but without the headers
+ *
+ * @warning source_port is expected to be in the endianness used by the host. The constructor will not convert this, so
+ *  in case this needs to be converted the function ntohs should be used beforehand. The to_key functions will however
+ *  assume the corresponding port value is in the network's representation, in this case the bytes will be reversed if
+ *  necessary.
  */
 struct SenderID
 {
@@ -29,7 +34,6 @@ struct SenderID
     uint16_t source_port;   // the host representation of the port (endianness)
 
     // Constructors
-    SenderID(): source_address {0}, source_port {0} {}
     SenderID(const in_addr address, const uint16_t port): source_address {address}, source_port {port} {}
 
     /**
@@ -86,7 +90,6 @@ struct SessionID
     uint16_t destination_port;
 
     // Constructors
-    SessionID(): destination_address {0}, proto {0}, destination_port {0} {}
     SessionID(const in_addr address, const uint16_t port, const uint8_t proto)
             : destination_address {address}, proto {proto}, destination_port {port} {}
 
