@@ -74,6 +74,7 @@ private:
     bool handle_confirmation_message(Packet* p, int port); // Till here
 
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
+    bool delete_state(const uint64_t& sender_key, const uint64_t& session_key);
 
     // Checking states
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);

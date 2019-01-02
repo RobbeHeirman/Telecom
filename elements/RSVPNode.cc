@@ -315,6 +315,23 @@ bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_
     return false;
 }
 
+bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_key){
+
+    if(this->m_path_state.find(sender_key) != this->m_path_state.end()) {
+        if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[session_key].end()) {
+            click_chatter(String("Erasing session: ", session_key).c_str());
+            this->m_path_state[sender_key].erase(session_key);
+
+            if(this->m_path_state[sender_key].empty()){
+                this->m_path_state.erase(sender_key);
+            }
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 bool RSVPNode::path_state_exists(const uint64_t& sender_key, const uint64_t& session_key){
     if(m_path_state.find(sender_key) != m_path_state.end()) {
@@ -405,7 +422,17 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
     // we check if this state is still in our table
     if(this->path_state_exists(sender_key, session_key)){
 
+        PathState& state = m_path_state[sender_key][session_key];
 
+        // Checks if this state is up to timeout, this means it did not receive a path_message yet
+        if(state.is_timeout){
+            this->delete_state(sender_key, session_key);
+        }
+        else{
+            // It was refreshed before timeout next timeout round the state will be destroyed.
+            state.is_timeout = true;
+            t->reschedule_after_msec(state.L * 100);
+        }
     }
 }
 
