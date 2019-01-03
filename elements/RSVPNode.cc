@@ -78,7 +78,7 @@ void RSVPNode::push(int port, Packet* p){
 }
 
 void RSVPNode::handle_path_message(Packet *p, int port) {
-    // TODO: Timed path messages to be resend.
+
     // Block of info we need to find
     Path path {};
     find_path_ptrs((unsigned char*) p, path); // function in abstract to find path ptrs
