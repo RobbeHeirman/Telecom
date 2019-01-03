@@ -352,11 +352,11 @@ struct RSVPFlowSpec : public RSVPIntServHeader
 {
     RSVPPerServiceHeader    service_header; // 0  - 3
     RSVPServiceParamHeader  param_header;   // 4  - 7
-    float                   r;              // 8  - 11
-    float                   b;              // 12 - 15
-    float                   p;              // 16 - 19
-    uint32_t                m;              // 20 - 23
-    uint32_t                M;              // 24 - 27
+    float                   r;              // 8  - 11 bucket rate
+    float                   b;              // 12 - 15 bucket size
+    float                   p;              // 16 - 19 peak data rate
+    uint32_t                m;              // 20 - 23 minimum policed unit
+    uint32_t                M;              // 24 - 27 maximum packet size
     
     
     static void write(unsigned char*& packet,

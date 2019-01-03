@@ -66,6 +66,14 @@ private:
         Timer* refresh_timer{nullptr};
         Timer* timeout_timer{nullptr};
         ReserveCallbackData* call_back_data{nullptr}; // Needed to cleanly remove
+
+        // 2 classes in DiffServ
+        enum DiffservClass {
+
+               best_effort = 0,
+               qos = 1
+        };
+
     };
 
     /**

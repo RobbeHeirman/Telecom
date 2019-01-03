@@ -78,7 +78,7 @@ void RSVPNode::push(int port, Packet* p){
 }
 
 void RSVPNode::handle_path_message(Packet *p, int port) {
-    // TODO: Timed path messages to be resend.
+
     // Block of info we need to find
     Path path {};
     find_path_ptrs((unsigned char*) p, path); // function in abstract to find path ptrs
@@ -143,6 +143,9 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
             state.policy_data.push_back(*(path.policy_data[i]));
         }
 
+
+        state.R = this->calculate_refresh(path.time_values->refresh);
+        state.L = this->calculate_L(path.time_values->refresh);
 
         state.is_timeout = false;
     }
@@ -255,8 +258,6 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
         }
 
     }
-
-
 }
 
 bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
