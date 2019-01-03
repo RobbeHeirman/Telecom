@@ -503,7 +503,7 @@ bool RSVPElement::find_resv_conf_ptrs(const unsigned char *const packet, ResvCon
                 //   last part of a RESV_CONF message
                 keep_going = false;
                 resv_conf.style = (RSVPStyle*) object;
-                return false;
+                break;
 
             case RSVPObject::FlowSpec:
                 check(true, "RESV_CONF message contains a FlowSpec object without a preceding Style object");
