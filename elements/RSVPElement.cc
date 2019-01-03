@@ -15,8 +15,18 @@ bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) 
 
     // Make sure path is initialised properly to avoid reporting false duplicate errors
     path = Path {};
-
+    bool ret_val = true;
     while((const unsigned char*) object < packet + ntohs(header->length)) {
+
+        // check for valid C-type
+        if( object->c_type > 2){ // Only 2 C types legal
+
+            click_chatter("Illegal C type in path message");
+            ret_val = false;
+            path.error_code = RSVPErrorSpec::UnknownCType;
+            path.error_value = ((uint16_t) object->class_num << 8) | object->c_type;
+
+        }
         // We want to handle on the type of object gets trough
         switch (object->class_num) {
 
@@ -55,7 +65,11 @@ bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) 
 
             default:
                 click_chatter("PATH message contains an object with an invalid class number");
-                return false;
+                // Still need those possible other ptr's for path error messaging
+                //return false;
+
+                path.error_code = RSVPErrorSpec::ErrorCode ::UnknownObjectClass;
+                ret_val = false;
         }
 
         // Add the object's length advertised in its header (in bytes) to the pointer
@@ -71,7 +85,7 @@ bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) 
         check(not path.sender.tspec, "PATH message is missing a SenderTSpec object")) return false;
 
     // All went well
-    return true;
+    return ret_val;
 }
 
 bool RSVPElement::find_resv_ptrs(const unsigned char *const packet, Resv& resv) {
@@ -672,7 +686,7 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
 }
 
 WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
-                                               const RSVPSenderTSpec& t_spec) {
+                                               const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode error_code, uint16_t error_value) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -689,7 +703,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvErr);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0, error_code, error_value);
     RSVPStyle     ::write(pos_ptr);
     RSVPFlowSpec  ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
                                    ntohl(t_spec.m), ntohl(t_spec.M));

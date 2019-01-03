@@ -77,6 +77,10 @@ struct SenderID
 
         return *(SenderID*)(&key);
     }
+
+    static inline SenderID from_rsvp_sendertemplate(RSVPSenderTemplate* send){
+        return from_key(to_key(*send));
+    }
 };
 
 
@@ -120,6 +124,11 @@ struct SessionID
     static inline SessionID from_key(const uint64_t key) {
 
         return *(SessionID*)(&key);
+    }
+
+    static inline SessionID from_rsvp_session(const RSVPSession* ses){
+
+        return from_key(to_key(*ses));
     }
 };
 
@@ -237,7 +246,9 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
-                                      const RSVPSenderTSpec& t_spec);
+                                      const RSVPSenderTSpec& t_spec,
+                                      RSVPErrorSpec::ErrorCode = RSVPErrorSpec::ErrorCode::Confirmation,
+                                      uint16_t error_value = 0);
 
     /**
      * Helper function that creates a new PATH_TEAR message

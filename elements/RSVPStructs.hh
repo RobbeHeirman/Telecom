@@ -282,8 +282,6 @@ struct RSVPStyle : public RSVPObject
 #else
 #   error "unknown byte order"
 #endif
-
-
     static void write(unsigned char*& packet,
                       const uint8_t sharing = 0b01,
                       const uint8_t sender_selection = 0b010) {
@@ -579,6 +577,10 @@ struct Path
     RSVPTimeValues*         time_values             {nullptr};
     Vector<RSVPPolicyData*> policy_data             {};
     SenderDescriptor        sender                  {nullptr, nullptr};
+
+    // Needed for error handling
+    RSVPErrorSpec::ErrorCode error_code = RSVPErrorSpec::ErrorCode::Confirmation;
+    uint16_t error_value = 0;
 };
 
 
