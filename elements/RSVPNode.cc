@@ -13,14 +13,12 @@ int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
     // Parse the config vector
     IPAddress addr;
     int result {args
-                        .read_mp("IPENCAP", ElementCastArg("IPEncap"), m_ipencap)
                         .read_mp("AddressInfo", addr)
                         .consume()};
 
     m_interfaces.push_back(addr);
     // Check whether the parse failed
     if (result < 0) {
-        m_ipencap = nullptr;
         return -1;
     }
 
@@ -83,7 +81,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     // TODO: Timed path messages to be resend.
     // Block of info we need to find
     Path path {};
-    find_path_ptrs(p, path); // function in abstract to find path ptrs
+    find_path_ptrs((unsigned char*) p, path); // function in abstract to find path ptrs
 
 
     // "State is defined by < session, sender template>"
@@ -152,9 +150,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         state.is_timeout = false;
     }
 
-    // TODO: NEEDS TO BE CHANGED TO SET IP DST DIRECTLY
     // Tell the IPEncapModule we keep on routing to the receiver
-    set_ipencap(path.sender.sender->src_addr, path.session->dest_addr);
+    ipencap(p, path.sender.sender->src_addr, path.session->dest_addr);
     output(port).push(p);
 }
 
@@ -162,7 +159,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
     // Helping to find us our corresponding ptrs.
     Resv resv;
-    find_resv_ptrs(p, resv);
+    find_resv_ptrs((unsigned char*) p, resv);
 
     // We loop over all flowDescriptors
     for(auto i = 0; i < resv.flow_descriptor_list.size(); i++){
@@ -248,8 +245,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                 // need PHop from pathstate to forward
                 PathState &state = m_path_state[address_key][session_key];
                 //Signaling that the IPEncap with the correct src and dst addresses.
-                // TODO: THIS IS NOT GOOD, Shouldn't strip IP header and place new one
-                set_ipencap(m_interfaces[port], state.prev_hop);
+                ipencap(p, m_interfaces[port], state.prev_hop);
                 output(port).push(p);
             }
             else {
@@ -267,13 +263,13 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
 
     PathTear tear;
-    find_path_tear_ptrs(p, tear);
+    find_path_tear_ptrs((unsigned char*) p, tear);
 
     uint64_t sender_key = this->sender_template_to_key(tear.sender_template);
     uint64_t session_key = this->session_to_key(tear.session);
 
     if(delete_state(sender_key, session_key, tear.hop->address)){
-        set_ipencap(tear.sender_template->src_addr, tear.session->dest_addr);
+        ipencap(p, tear.sender_template->src_addr, tear.session->dest_addr);
         output(port).push(p);
         return true;
     }
@@ -288,7 +284,7 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
 bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
 
     ResvTear resv_tear;
-    find_resv_tear_ptrs(p, resv_tear);
+    find_resv_tear_ptrs((unsigned char*) p, resv_tear);
 
     for(int i = 0; i < resv_tear.flow_descriptor_list.size(); i++){
 
@@ -304,7 +300,7 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
                 PathState* state = &m_path_state[address_key][session_key];
                 in_addr addr = state->prev_hop;
                 if(this->delete_state(address_key, session_key, state->prev_hop, false)){ // If it's successfully deleted.
-                    set_ipencap(m_interfaces[port], addr);
+                    ipencap(p, m_interfaces[port], addr);
                     output(port).push(p);
 
                 }
@@ -334,7 +330,7 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
 bool RSVPNode::handle_path_error_message(Packet* p, int port){
 
     PathErr path_err;
-    find_path_err_ptrs(p, path_err);
+    find_path_err_ptrs((unsigned char*) p, path_err);
 
     // Converting to keys
     auto address_key{SenderID::to_key(*(path_err.sender.sender))};
@@ -345,7 +341,7 @@ bool RSVPNode::handle_path_error_message(Packet* p, int port){
         PathState& state = this->m_path_state[address_key][session_key];
 
         // We forward it upstream with this interface as source and the NHOP stored in state
-        set_ipencap(this->m_interfaces[port], state.prev_hop);
+        ipencap(p, this->m_interfaces[port], state.prev_hop);
         output(port).push(p);
         return true;
 
@@ -357,7 +353,7 @@ bool RSVPNode::handle_path_error_message(Packet* p, int port){
 bool RSVPNode::handle_resv_error_message(Packet* p, int port){
 
     ResvErr rsv_err;
-    find_resv_err_ptrs(p, rsv_err);
+    find_resv_err_ptrs((unsigned char*) p, rsv_err);
 
     auto sender_key{SenderID::to_key(*rsv_err.flow_descriptor.filter_spec)};
     auto session_key{SessionID::to_key(*rsv_err.session)};
@@ -365,7 +361,7 @@ bool RSVPNode::handle_resv_error_message(Packet* p, int port){
     if(resv_ff_exists(sender_key, session_key)){
 
         ReserveState& state = m_ff_resv_states[sender_key][session_key];
-        set_ipencap(m_interfaces[port], state.next_hop);
+        ipencap(p, m_interfaces[port], state.next_hop);
         output(port).push(p);
         return true;
     }
@@ -377,14 +373,14 @@ bool RSVPNode::handle_resv_error_message(Packet* p, int port){
 bool RSVPNode::handle_confirmation_message(Packet* p, int port){
 
     ResvConf rsv_conf;
-    find_resv_conf_ptrs(p, rsv_conf);
+    find_resv_conf_ptrs((unsigned char*) p, rsv_conf);
 
     auto session_key{SessionID::to_key(*rsv_conf.session)};
     for(auto i = 0 ; i < rsv_conf.flow_descriptor_list.size() ;  i++){
         auto sender_key{SenderID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
         if(resv_ff_exists(sender_key, session_key)){
             ReserveState& state = m_ff_resv_states[sender_key][session_key];
-            set_ipencap(m_interfaces[port], state.next_hop);
+            ipencap(p, m_interfaces[port], state.next_hop);
             output(port).push(p);
         }
     }
@@ -514,10 +510,9 @@ void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Tim
 
     if(this->path_state_exists(sender_key, session_key)){
         //Sending a refresh path message
-        //TODO: the SetIPEncap needs to be changed here aswell.
         PathState* state = &m_path_state[sender_key][session_key];
         WritablePacket* p = this->generate_path(state);
-        this->set_ipencap(state->sender_template.src_addr, state->session.dest_addr);
+        this->ipencap(p, state->sender_template.src_addr, state->session.dest_addr);
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
@@ -549,10 +544,9 @@ void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, 
     if(this->resv_ff_exists(sender_key, session_key)){
 
         //Sending a refresh path message
-        //TODO: the SetIPEncap needs to be changed here aswell.
         ReserveState& state = m_ff_resv_states[sender_key][session_key];
         WritablePacket* p = this->generate_resv(state);
-        this->set_ipencap(state.filterSpec.src_addr, state.session.dest_addr);
+        this->ipencap(p, state.filterSpec.src_addr, state.session.dest_addr);
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session

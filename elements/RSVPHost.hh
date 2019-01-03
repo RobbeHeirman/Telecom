@@ -36,13 +36,13 @@ public:
     WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv);
 
     // Packet parsers
-    void parse_path(const Packet* packet);
-    void parse_resv(const Packet* packet);
-    void parse_path_err(const Packet* packet);
-    void parse_resv_err(const Packet* packet);
-    void parse_path_tear(const Packet* packet);
-    void parse_resv_tear(const Packet* packet);
-    void parse_resv_conf(const Packet* packet);
+    void parse_path(const unsigned char* packet);
+    void parse_resv(const unsigned char* packet);
+    void parse_path_err(const unsigned char* packet);
+    void parse_resv_err(const unsigned char* packet);
+    void parse_path_tear(const unsigned char* packet);
+    void parse_resv_tear(const unsigned char* packet);
+    void parse_resv_conf(const unsigned char* packet);
 
     // Handler functions
     /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
@@ -83,39 +83,40 @@ private:
     static void push_resv(Timer* timer, void* user_data);
     static void tear_state(Timer* timer, void* user_data);
 
-    // Structs and typedef to keep track of the senders of a certain session
-    struct State
+    // The current sessions
+    struct PathState
     {
-        in_addr hop_address;
+        IPAddress prev_hop;
         Vector<RSVPPolicyData> policy_data;
-        RSVPSenderTSpec sender_tspec;
-        Timer* send;
-        Timer* lifetime;
-    };
-    typedef HashMap<uint64_t, State> StateMap;
+        RSVPSenderTSpec t_spec;
 
-    // Struct and typedef to keep track of all current sessions
-    struct Session
+        Timer* timeout_timer;
+        Timer* refresh_timer;
+
+        TearData* tear_data;
+        void* send_data;
+    };
+    typedef HashMap<uint64_t, PathState> StateMap;
+    struct SessionStates
     {
         StateMap senders;
         StateMap receivers;
     };
-    typedef HashMap<uint64_t, Session> SessionMap;
-    typedef HashMap<int, SessionID> SessionIDMap;
+    typedef HashMap<uint64_t, SessionStates> SessionStatesMap;
+    SessionStatesMap m_sessions;
 
-    // The current sessions
-    SessionMap m_sessions;
+    typedef HashMap<int, uint64_t> SessionIDMap;
     SessionIDMap m_session_ids;
 
-    // The refresh value for RSVPTimeValues objects
-    static constexpr uint32_t s_refresh {10000};
-
-    // Values for RSVPSenderTSpec objects
+    // Default values for RSVP messages
     static constexpr float s_bucket_rate {10000};
     static constexpr float s_bucket_size {1000};
     static constexpr float s_peak_rate {100000};
     static constexpr uint32_t s_min_unit {100};
     static constexpr uint32_t s_max_size {1500};
+
+    static constexpr uint32_t R {10000};    // TODO set to 30000 (10000 for testing)
+    static constexpr uint8_t K {3};
 };
 
 
