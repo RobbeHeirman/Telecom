@@ -581,7 +581,69 @@ RSVPObject* RSVPElement::skip_integrity(const unsigned char *const packet) const
     return object;
 }
 
-WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const SenderID& sender_id) {
+WritablePacket* RSVPElement::generate_path(const SessionID& session_id, const SenderID& sender_id, const uint32_t R,
+                                           const RSVPSenderTSpec& t_spec) {
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)     + sizeof(RSVPSession)        + sizeof(RSVPHop)
+                           + sizeof(RSVPTimeValues) + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
+    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader        ::write(pos_ptr, RSVPHeader::Path);
+    RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPHop           ::write(pos_ptr, sender_id.source_address);
+    RSVPTimeValues    ::write(pos_ptr, R);
+    RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    // Don't just copy the SenderTSpec object to make sure the object header is correct, and pos_ptr gets updated
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader        ::complete(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPElement::generate_resv(const SessionID& session_id, const SenderID& sender_id, const uint32_t R,
+                                           const RSVPSenderTSpec& t_spec, const bool confirm) {
+
+    // Create a new packet
+    const unsigned long size {sizeof(RSVPHeader)     + sizeof(RSVPSession)                    + sizeof(RSVPHop)
+                            + sizeof(RSVPTimeValues) + (confirm? sizeof(RSVPResvConfirm) : 0) + sizeof(RSVPStyle)
+                            + sizeof(RSVPFlowSpec)   + sizeof(RSVPFilterSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
+    RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPHop       ::write(pos_ptr, sender_id.source_address);
+    RSVPTimeValues::write(pos_ptr, R);
+    if (confirm) {
+        RSVPResvConfirm::write(pos_ptr, session_id.destination_address);
+    }
+    RSVPStyle     ::write(pos_ptr);
+    RSVPFlowSpec  ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader    ::complete(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, const SenderID& sender_id,
+                                               const RSVPSenderTSpec& t_spec, const RSVPErrorSpec::ErrorCode code,
+                                               const uint16_t error_value) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPErrorSpec)
@@ -597,17 +659,17 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader        ::write(pos_ptr, RSVPHeader::PathErr);
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00);     // TODO
+    RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00, code, error_value);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);
-    // TODO copy template and tspec from PATH message
+    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
 
     // Complete the header by setting the size and checksum correctly
     RSVPHeader::complete(packet, size);
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id, uint8_t error_code) {
+WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
+                                               const RSVPSenderTSpec& t_spec) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -624,10 +686,9 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvErr);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), error_code);
+    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
     RSVPStyle     ::write(pos_ptr);
-    // TODO copy style from RESV message
-    RSVPFlowSpec  ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);    // TODO
+    RSVPFlowSpec  ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
     RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
 
     // Complete the header by setting the size and checksum correctly
@@ -635,7 +696,8 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const SenderID& sender_id) {
+WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
+                                                const RSVPSenderTSpec& t_spec) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPHop)
@@ -653,7 +715,7 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop           ::write(pos_ptr, m_address_info.in_addr());
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);    // TODO
+    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
 
     // Complete the header by setting the size and checksum correctly
     RSVPHeader        ::complete(packet, size);
@@ -682,6 +744,34 @@ WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, con
 
     // Complete the header by setting the size and checksum correctly
     RSVPHeader    ::complete(packet, size);
+    return packet;
+}
+
+WritablePacket* RSVPElement::generate_resv_conf(const SessionID& session_id, const SenderID& sender_id,
+                                                const RSVPSenderTSpec& t_spec, const RSVPResvConfirm& resv_confirm) {
+
+    // Create a new packet
+    const unsigned int size {sizeof(RSVPHeader)      + sizeof(RSVPSession)  + sizeof(RSVPErrorSpec)  + sizeof(RSVPStyle)
+                           + sizeof(RSVPResvConfirm) + sizeof(RSVPFlowSpec) + sizeof(RSVPFilterSpec)};
+    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
+    if (not packet)
+        return nullptr;
+
+    // Set all bits in the new packet to 0
+    auto pos_ptr {packet->data()};
+    memset(pos_ptr, 0, size);
+
+    // The write functions return a pointer to the position right after the area they wrote to
+    RSVPHeader     ::write(pos_ptr, RSVPHeader::ResvConf);
+    RSVPSession    ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
+    RSVPErrorSpec  ::write(pos_ptr, sender_id.source_address, RSVPErrorSpec::Confirmation);
+    RSVPResvConfirm::write(pos_ptr, resv_confirm.rec_addr);
+    RSVPStyle      ::write(pos_ptr);
+    RSVPFlowSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPFilterSpec ::write(pos_ptr, sender_id.source_address, sender_id.source_port);
+
+    // Complete the header by setting the size and checksum correctly
+    RSVPHeader     ::complete(packet, size);
     return packet;
 }
 

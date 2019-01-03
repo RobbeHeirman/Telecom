@@ -60,95 +60,6 @@ void RSVPHost::push(int, Packet *const packet) {
     packet->kill();
 }
 
-WritablePacket* RSVPHost::generate_path(const SessionID& session_id, const SenderID& sender_id) {
-
-    // Create a new packet
-    const unsigned int size {sizeof(RSVPHeader)     + sizeof(RSVPSession)        + sizeof(RSVPHop)
-                           + sizeof(RSVPTimeValues) + sizeof(RSVPSenderTemplate) + sizeof(RSVPSenderTSpec)};
-    WritablePacket* const packet {Packet::make(s_headroom, nullptr, size, 0)};
-    if (not packet)
-        return nullptr;
-
-    // Set all bits in the new packet to 0
-    auto pos_ptr {packet->data()};
-    memset(pos_ptr, 0, size);
-
-    // The write functions return a pointer to the position right after the area they wrote to
-    RSVPHeader        ::write(pos_ptr, RSVPHeader::Path);
-    RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop           ::write(pos_ptr, sender_id.source_address);
-    RSVPTimeValues    ::write(pos_ptr, R);
-    RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
-
-    // Complete the header by setting the size and checksum correctly
-    RSVPHeader        ::complete(packet, size);
-    return packet;
-}
-
-WritablePacket* RSVPHost::generate_resv(const SessionID& session_id, const SenderID& sender_id, const bool confirm) {
-
-    // Create a new packet
-    const unsigned long size {sizeof(RSVPHeader)     + sizeof(RSVPSession)                    + sizeof(RSVPHop)
-                            + sizeof(RSVPTimeValues) + (confirm? sizeof(RSVPResvConfirm) : 0) + sizeof(RSVPStyle)
-                            + sizeof(RSVPFlowSpec)   + sizeof(RSVPFilterSpec)};
-    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
-    if (not packet)
-        return nullptr;
-
-    // Set all bits in the new packet to 0
-    auto pos_ptr {packet->data()};
-    memset(pos_ptr, 0, size);
-
-    // The write functions return a pointer to the position right after the area they wrote to
-    RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
-    RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPTimeValues::write(pos_ptr, R);
-    if (confirm) {
-        RSVPResvConfirm::write(pos_ptr, session_id.destination_address);
-    }
-    RSVPStyle     ::write(pos_ptr);
-    RSVPFlowSpec  ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
-    RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-
-    // Complete the header by setting the size and checksum correctly
-    RSVPHeader    ::complete(packet, size);
-    return packet;
-}
-
-WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv) {
-
-    // Create a new packet
-    const unsigned int size {sizeof(RSVPHeader)      + sizeof(RSVPSession)  + sizeof(RSVPErrorSpec)  + sizeof(RSVPStyle)
-                           + sizeof(RSVPResvConfirm) + sizeof(RSVPFlowSpec) + sizeof(RSVPFilterSpec)};
-    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
-    if (not packet)
-        return nullptr;
-
-    // Set all bits in the new packet to 0
-    auto pos_ptr {packet->data()};
-    memset(pos_ptr, 0, size);
-
-    // The write functions return a pointer to the position right after the area they wrote to
-    RSVPHeader     ::write(pos_ptr, RSVPHeader::ResvConf);
-    RSVPSession    ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPErrorSpec  ::write(pos_ptr, sender_id.source_address, RSVPErrorSpec::Confirmation);
-
-    // The ResvConf object should be copied from a RESV message
-    RSVPResvConfirm& resv_confirm = *(RSVPResvConfirm*) pos_ptr;
-    resv_confirm = *(resv.resv_confirm);
-    pos_ptr = (unsigned char*)((RSVPResvConfirm*)(pos_ptr) + 1);
-
-    RSVPStyle      ::write(pos_ptr);
-    RSVPFlowSpec   ::write(pos_ptr, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
-    RSVPFilterSpec ::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-
-    // Complete the header by setting the size and checksum correctly
-    RSVPHeader     ::complete(packet, size);
-    return packet;
-}
-
 void RSVPHost::parse_path(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
@@ -224,7 +135,8 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
         if (resv.resv_confirm) {
-            auto packet {generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key), resv)};
+            auto packet {generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key),
+                                            state.t_spec, *resv.resv_confirm)};
             ipencap(packet, resv.session->dest_addr, flow->filter_spec->src_addr);
             output(0).push(packet);
         }
@@ -691,7 +603,7 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     if (check(not sender_pair, "PATH message can't be sent; invalid sender ID received")) return;
 
     // Generate a new PATH message and push it
-    const auto packet {data->host->generate_path(data->session_id, data->sender_id)};
+    const auto packet {data->host->generate_path(data->session_id, data->sender_id, R, sender_pair->value.t_spec)};
     data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
     data->host->output(0).push(packet);
 
@@ -714,9 +626,10 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     // Make sure the given sender ID is valid
     const auto sender_pair {session.receivers.find_pair(data->sender_id.to_key())};
     if (check(not sender_pair, "RESV message can't be sent; invalid sender ID received")) return;
+    const PathState& state {sender_pair->value};
 
     // Generate a new RESV message and push it
-    const auto packet {data->host->generate_resv(data->session_id, data->sender_id, data->first)};
+    const auto packet {data->host->generate_resv(data->session_id, data->sender_id, R, state.t_spec, data->first)};
     data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
 
@@ -744,7 +657,7 @@ void RSVPHost::tear_state(Timer *const, void *const user_data) {
         to_delete = &(state_pair->value);
         session.senders.erase(data->sender_id.to_key());
 
-        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id)};
+        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id, to_delete->t_spec)};
         data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
         data->host->output(0).push(packet);
 

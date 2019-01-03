@@ -32,11 +32,6 @@ public:
     int configure(Vector<String>& config, ErrorHandler* errh);
     void push(int, Packet*);
 
-    // Packet generators
-    WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id);
-    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, bool confirm = false);
-    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id, const Resv& resv);
-
     // Packet parsers
     void parse_path(const unsigned char* packet);
     void parse_resv(const unsigned char* packet);
