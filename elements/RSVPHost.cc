@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <click/args.hh>
 #include <click/glue.hh>
+#include <click/straccum.hh>
 
 CLICK_DECLS
 
@@ -251,61 +252,131 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
     // Initialise these variables here as it can't be done inside the switch statement
     const auto err_value {ntohs(path_err.error_spec->err_value)};
     const auto ss {(uint16_t) (err_value / 0x4000)};
-    String err_cause {};
+    StringAccum err_cause {"RSVPHost received a PATH_ERR message: "};
 
     // Report the error
     switch (path_err.error_spec->err_code) {
 
         case RSVPErrorSpec::UnknownObjectClass:
-            click_chatter("RSVPHost received PATH_ERR message: sent out PATH message containing unknown object type %u",
-                    *(uint8_t*) &err_value);
+            err_cause << "sent out PATH message containing unknown object type " << *((uint8_t*) &err_value);
             break;
 
         case RSVPErrorSpec::UnknownCType:
-            click_chatter("RSVPHost received PATH_ERR message: sent out PATH message containing an unknown C-Type %u",
-                    *((uint8_t*) &err_value) + 1);
+            err_cause << "sent out PATH message containing an unknown C-Type " << *(((uint8_t*) &err_value) + 1);
             break;
 
         case RSVPErrorSpec::TrafficControlError:
             if (ss != 0) {
-                click_chatter("RSVPHost received PATH_ERR message: traffic control error with ss = %u", ss);
+                err_cause << "traffic control error with value " << err_value;
                 break;
             }
+            err_cause << "traffic control error caused by a(n) ";
             switch (err_value) {
                 case 1:
-                    err_cause = "service conflict";
+                    err_cause << "service conflict";
                     break;
                 case 2:
-                    err_cause = "service unsupported";
+                    err_cause << "service unsupported";
                     break;
                 case 3:
-                    err_cause = "bad FlowSpec value";
+                    err_cause << "bad FlowSpec value";
                     break;
                 case 4:
-                    err_cause = "bad TSpec value";
+                    err_cause << "bad TSpec value";
                     break;
                 default:
-                    err_cause = "unknown/invalid sub-code";
+                    err_cause << "unknown/invalid sub-code";
                     break;
             }
-            click_chatter("RSVPHost received PATH_ERR message: traffic control error cause by a(n) %s",
-                    err_cause.c_str());
             break;
 
         case RSVPErrorSpec::RSVPSystemError:
-            click_chatter("RSVPHost received PATH_ERR message: RSVP system error with value %u", err_value);
+            err_cause << "RSVP system error with value " << err_value;
             break;
 
         default:
-            click_chatter("RSVPHost received PATH_ERR message with an unknown/invalid error code %u (error value %u)",
-                    path_err.error_spec->err_code, err_value);
+            err_cause << "unknown/invalid error code " << path_err.error_spec->err_code << " (error value " << err_value
+                    << ")";
             break;
     }
+    click_chatter(err_cause.c_str());
 }
 
-void RSVPHost::parse_resv_err(const unsigned char *const ) {
+void RSVPHost::parse_resv_err(const unsigned char *const packet) {
 
-    // TODO
+    // Get all the objects we need from the message
+    ResvErr resv_err {};
+    if (check(not find_resv_err_ptrs(packet, resv_err), "RSVPHost received an ill-formed RESV_ERR message")) return;
+
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*resv_err.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
+    if (check(not session_pair, "RSVPHost received RESV_ERR message that doesn't seem to belong here")) return;
+    SessionStates & session {session_pair->value};
+
+    // Check whether the message's sender template matches any of the host's senders
+    const uint64_t sender_key {SenderID::to_key(*resv_err.flow_descriptor.filter_spec)};
+    auto sender_pair {session.receivers.find_pair(sender_key)};
+    if (check(not sender_pair,
+              "RSVPHost received RESV_ERR message with a SenderTemplate object that doesn't match any sender")) return;
+
+    // Initialise these variables here as it can't be done inside the switch statement
+    const auto err_value {ntohs(resv_err.error_spec->err_value)};
+    const auto ss {(uint16_t) (err_value / 0x4000)};
+    StringAccum err_cause {"RSVPHost received RESV_ERR message: "};
+
+    // Report the error
+    switch (resv_err.error_spec->err_code) {
+
+        case RSVPErrorSpec::UnkownResvStyle:
+            err_cause << "unknown reservation style";
+            break;
+
+        case RSVPErrorSpec::UnknownObjectClass:
+            err_cause << "unknown object class number " << *(uint8_t*) &err_value;
+            break;
+
+        case RSVPErrorSpec::UnknownCType:
+            err_cause << "unknown object C-type " << *(((uint8_t*) &err_value) + 1);
+            break;
+
+        case RSVPErrorSpec::API:
+            err_cause << "API error code " << err_value;
+            break;
+
+        case RSVPErrorSpec::TrafficControlError:
+            if (ss != 0) {
+                err_cause << "traffic control error with value " << err_value;
+                break;
+            }
+            err_cause << "traffic control error caused by a(n) ";
+            switch (err_value) {
+                case 1:
+                    err_cause << "service conflict";
+                    break;
+                case 2:
+                    err_cause << "service unsupported";
+                    break;
+                case 3:
+                    err_cause << "bad FlowSpec value";
+                    break;
+                case 4:
+                    err_cause << "bad TSpec value";
+                    break;
+                default:
+                    err_cause << "unknown/invalid sub-code " << err_value;
+                    break;
+            }
+
+        case RSVPErrorSpec::RSVPSystemError:
+            err_cause << "RSVP system error with value " << err_value;
+            break;
+
+        default:
+            err_cause << "unknown/invalid error code " << resv_err.error_spec->err_code;
+            break;
+    }
+    click_chatter(err_cause.c_str());
 }
 
 void RSVPHost::parse_path_tear(const unsigned char *const packet) {
@@ -356,9 +427,17 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
     };
 }
 
-void RSVPHost::parse_resv_conf(const unsigned char *const ) {
+void RSVPHost::parse_resv_conf(const unsigned char *const packet) {
 
-    // TODO
+    // Get all the object we need from the packet
+    ResvConf resv_conf {};
+    if (check(not find_resv_conf_ptrs(packet, resv_conf), "RSVPHost received an ill-formed RESV_CONF message")) return;
+
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*resv_conf.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
+    if (check(not session_pair, "RSVPHost received RESV_CONF message that doesn't seem to belong here")) return;
+//    SessionStates& session {session_pair->value};
 }
 
 int RSVPHost::session(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
