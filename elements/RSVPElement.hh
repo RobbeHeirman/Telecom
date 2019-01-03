@@ -77,6 +77,10 @@ struct SenderID
 
         return *(SenderID*)(&key);
     }
+
+    static inline SenderID from_rsvp_sendertemplate(RSVPSenderTemplate* send){
+        return from_key(to_key(*send));
+    }
 };
 
 
@@ -120,6 +124,11 @@ struct SessionID
     static inline SessionID from_key(const uint64_t key) {
 
         return *(SessionID*)(&key);
+    }
+
+    static inline SessionID from_rsvp_session(const RSVPSession* ses){
+
+        return from_key(to_key(*ses));
     }
 };
 

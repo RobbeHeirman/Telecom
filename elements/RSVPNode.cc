@@ -81,7 +81,20 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
     // Block of info we need to find
     Path path {};
-    find_path_ptrs((unsigned char*) p, path); // function in abstract to find path ptrs
+     if(!find_path_ptrs((unsigned char*) p, path)){
+         p->kill();
+         if(path.session && path.sender.sender && path.sender.tspec){
+             SessionID ses_id{SessionID::from_rsvp_session(path.session)};
+             SenderID sender_id{SenderID::from_rsvp_sendertemplate(path.sender.sender)};
+             generate_path_err(ses_id, sender_id, *path.sender.tspec, path.error_code, path.error_value);
+             return;
+         }
+         else{
+             click_chatter("Couldn't find all the objects to generate error message")
+             return;
+         }
+
+     } // function in abstract to find path ptrs
 
 
     // "State is defined by < session, sender template>"
