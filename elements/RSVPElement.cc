@@ -601,7 +601,8 @@ WritablePacket* RSVPElement::generate_path(const SessionID& session_id, const Se
     RSVPHop           ::write(pos_ptr, sender_id.source_address);
     RSVPTimeValues    ::write(pos_ptr, R);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPSenderTSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                       ntohl(t_spec.m), ntohl(t_spec.M));
     // Don't just copy the SenderTSpec object to make sure the object header is correct, and pos_ptr gets updated
 
     // Complete the header by setting the size and checksum correctly
@@ -633,7 +634,8 @@ WritablePacket* RSVPElement::generate_resv(const SessionID& session_id, const Se
         RSVPResvConfirm::write(pos_ptr, session_id.destination_address);
     }
     RSVPStyle     ::write(pos_ptr);
-    RSVPFlowSpec  ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPFlowSpec  ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                   ntohl(t_spec.m), ntohl(t_spec.M));
     RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
 
     // Complete the header by setting the size and checksum correctly
@@ -661,7 +663,8 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00, code, error_value);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPSenderTSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                       ntohl(t_spec.m), ntohl(t_spec.M));
 
     // Complete the header by setting the size and checksum correctly
     RSVPHeader::complete(packet, size);
@@ -688,7 +691,8 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
     RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
     RSVPStyle     ::write(pos_ptr);
-    RSVPFlowSpec  ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPFlowSpec  ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                   ntohl(t_spec.m), ntohl(t_spec.M));
     RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
 
     // Complete the header by setting the size and checksum correctly
@@ -715,7 +719,8 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop           ::write(pos_ptr, m_address_info.in_addr());
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
-    RSVPSenderTSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPSenderTSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                       ntohl(t_spec.m), ntohl(t_spec.M));
 
     // Complete the header by setting the size and checksum correctly
     RSVPHeader        ::complete(packet, size);
@@ -767,7 +772,8 @@ WritablePacket* RSVPElement::generate_resv_conf(const SessionID& session_id, con
     RSVPErrorSpec  ::write(pos_ptr, sender_id.source_address, RSVPErrorSpec::Confirmation);
     RSVPResvConfirm::write(pos_ptr, resv_confirm.rec_addr);
     RSVPStyle      ::write(pos_ptr);
-    RSVPFlowSpec   ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
+    RSVPFlowSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
+                                    ntohl(t_spec.m), ntohl(t_spec.M));
     RSVPFilterSpec ::write(pos_ptr, sender_id.source_address, sender_id.source_port);
 
     // Complete the header by setting the size and checksum correctly

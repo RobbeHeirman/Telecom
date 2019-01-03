@@ -30,7 +30,8 @@ int RSVPHost::configure(Vector<String>& , ErrorHandler *const ) {
 void RSVPHost::push(int, Packet *const packet) {
 
     // Get the header from the RSVP message
-    const auto header {(RSVPHeader*) (packet->data() + packet->ip_header_length())};
+    const auto ip_header = (click_ip*) packet->data();
+    const auto header {(RSVPHeader*) (packet->data() + 4 * ip_header->ip_hl)};
 
     // Make sure the header is valid
     if (check(header->version != RSVPVersion, "RSVPHost received packet with invalid version")) return;

@@ -333,6 +333,22 @@ struct RSVPServiceParamHeader
 };
 
 
+/**
+ * Converts floats from host to network or network to host representation (flips bytes if necessary)
+ */
+inline float convert_float(const float f) {
+
+    // Assuming host representation is simply little or big endian (#error in RSVPHeader should've caught this)
+#if CLICK_BYTE_ORDER == CLICK_LITTLE_ENDIAN
+    const uint32_t temp {htonl(*(uint32_t*)&f)};
+    return *(float*)&temp;
+#elif CLICK_BYTE_ORDER == CLICK_BIG_ENDIAN
+    // Checking byte order isn't necessary as htonl can deal with it, but this could improve efficiency a bit
+    return f;
+#endif
+}
+
+
 /*+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |    5  (c)     |0| reserved    |             6 (d)             |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -377,13 +393,9 @@ struct RSVPFlowSpec : public RSVPIntServHeader
         flow_spec->param_header.param_nr      = 0x7f;
         flow_spec->param_header.length        = htons(0x0005);
 
-        const uint32_t temp_r {htonl(*(uint32_t*)&r)};
-        const uint32_t temp_b {htonl(*(uint32_t*)&b)};
-        const uint32_t temp_p {htonl(*(uint32_t*)&p)};
-        flow_spec->r                          = *(float*)&temp_r;
-        flow_spec->b                          = *(float*)&temp_b;
-        flow_spec->p                          = *(float*)&temp_p;
-
+        flow_spec->r                          = convert_float(r);
+        flow_spec->b                          = convert_float(b);
+        flow_spec->p                          = convert_float(p);
         flow_spec->m                          = htonl(m);
         flow_spec->M                          = htonl(M);
         packet += sizeof(RSVPFlowSpec);
@@ -492,13 +504,9 @@ struct RSVPSenderTSpec : public RSVPIntServHeader
         s_tspec->param_header.param_nr      = 0x7f;
         s_tspec->param_header.length        = htons(0x0005);
 
-        const uint32_t temp_r {htonl(*(uint32_t*)&r)};
-        const uint32_t temp_b {htonl(*(uint32_t*)&b)};
-        const uint32_t temp_p {htonl(*(uint32_t*)&p)};
-        s_tspec->r                          = *(float*)&temp_r;
-        s_tspec->b                          = *(float*)&temp_b;
-        s_tspec->p                          = *(float*)&temp_p;
-
+        s_tspec->r                          = convert_float(r);
+        s_tspec->b                          = convert_float(b);
+        s_tspec->p                          = convert_float(p);
         s_tspec->m                          = htonl(m);
         s_tspec->M                          = htonl(M);
         packet += sizeof(RSVPSenderTSpec);
