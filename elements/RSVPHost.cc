@@ -132,7 +132,7 @@ WritablePacket* RSVPHost::generate_resv_conf(const SessionID& session_id, const 
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader     ::write(pos_ptr, RSVPHeader::ResvConf);
     RSVPSession    ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPErrorSpec  ::write(pos_ptr, sender_id.source_address, 0x00);
+    RSVPErrorSpec  ::write(pos_ptr, sender_id.source_address, RSVPErrorSpec::Confirmation);
 
     // The ResvConf object should be copied from a RESV message
     RSVPResvConfirm& resv_confirm = *(RSVPResvConfirm*) pos_ptr;
@@ -230,9 +230,77 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
     };
 }
 
-void RSVPHost::parse_path_err(const unsigned char *const ) {
+void RSVPHost::parse_path_err(const unsigned char *const packet) {
 
-    // TODO
+    // Get all the objects we need from the message
+    PathErr path_err {};
+    if (check(not find_path_err_ptrs(packet, path_err), "RSVPHost received an ill-formed PATH_ERR message")) return;
+
+    // Check whether the message's session matches any of the host's sessions
+    const uint64_t session_key {SessionID::to_key(*path_err.session)};
+    auto session_pair {m_sessions.find_pair(session_key)};
+    if (check(not session_pair, "RSVPHost received PATH_ERR message that doesn't seem to belong here")) return;
+    SessionStates & session {session_pair->value};
+
+    // Check whether the message's sender template matches any of the host's senders
+    const uint64_t sender_key {SenderID::to_key(*path_err.sender.sender)};
+    auto sender_pair {session.senders.find_pair(sender_key)};
+    if (check(not sender_pair,
+            "RSVPHost received PATH_ERR message with a SenderTemplate object that doesn't match any sender")) return;
+
+    // Initialise these variables here as it can't be done inside the switch statement
+    const auto err_value {ntohs(path_err.error_spec->err_value)};
+    const auto ss {(uint16_t) (err_value / 0x4000)};
+    String err_cause {};
+
+    // Report the error
+    switch (path_err.error_spec->err_code) {
+
+        case RSVPErrorSpec::UnknownObjectClass:
+            click_chatter("RSVPHost received PATH_ERR message: sent out PATH message containing unknown object type %u",
+                    *(uint8_t*) &err_value);
+            break;
+
+        case RSVPErrorSpec::UnknownCType:
+            click_chatter("RSVPHost received PATH_ERR message: sent out PATH message containing an unknown C-Type %u",
+                    *((uint8_t*) &err_value) + 1);
+            break;
+
+        case RSVPErrorSpec::TrafficControlError:
+            if (ss != 0) {
+                click_chatter("RSVPHost received PATH_ERR message: traffic control error with ss = %u", ss);
+                break;
+            }
+            switch (err_value) {
+                case 1:
+                    err_cause = "service conflict";
+                    break;
+                case 2:
+                    err_cause = "service unsupported";
+                    break;
+                case 3:
+                    err_cause = "bad FlowSpec value";
+                    break;
+                case 4:
+                    err_cause = "bad TSpec value";
+                    break;
+                default:
+                    err_cause = "unknown/invalid sub-code";
+                    break;
+            }
+            click_chatter("RSVPHost received PATH_ERR message: traffic control error cause by a(n) %s",
+                    err_cause.c_str());
+            break;
+
+        case RSVPErrorSpec::RSVPSystemError:
+            click_chatter("RSVPHost received PATH_ERR message: RSVP system error with value %u", err_value);
+            break;
+
+        default:
+            click_chatter("RSVPHost received PATH_ERR message with an unknown/invalid error code %u (error value %u)",
+                    path_err.error_spec->err_code, err_value);
+            break;
+    }
 }
 
 void RSVPHost::parse_resv_err(const unsigned char *const ) {
@@ -572,6 +640,11 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     const auto packet {data->host->generate_resv(data->session_id, data->sender_id, data->first)};
     data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
+
+    // TODO remove
+    const auto p {data->host->generate_path_err(data->session_id, data->sender_id)};
+    data->host->ipencap(p, data->sender_id.source_address, data->session_id.destination_address);
+    data->host->output(0).push(p);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
     timer->reschedule_after_msec(R);

@@ -207,26 +207,25 @@ struct RSVPErrorSpec : public RSVPObject
     };
 
     enum ErrorCode : uint8_t {
-        Confirmation = 0,
-        UnkownResvStyle = 6,
-        UnknownObjectClass = 13,
-        UnknownCType = 14,
-        API = 20,
+        Confirmation        = 0,
+        UnkownResvStyle     = 6,
+        UnknownObjectClass  = 13,
+        UnknownCType        = 14,
+        API                 = 20,
         TrafficControlError = 21,
-        RSVPSystemError = 23
-
+        RSVPSystemError     = 23
     };
 
     in_addr     address;    // 0 - 3
     uint8_t     flags;      // 4
-    uint8_t     err_code;   // 5
+    ErrorCode   err_code;   // 5
     uint16_t    err_value;  // 6 - 7
 
 
     static void write(unsigned char*& packet,
                       const in_addr address,
                       const uint8_t flags,
-                      const uint8_t err_code = 0x00,
+                      const ErrorCode err_code = Confirmation,
                       const uint16_t err_value = 0x0000) {
 
         const auto error_spec {(RSVPErrorSpec*) packet};

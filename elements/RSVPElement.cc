@@ -597,7 +597,7 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader        ::write(pos_ptr, RSVPHeader::PathErr);
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPErrorSpec     ::write(pos_ptr, m_address_info.in_addr(), 0x00);     // TODO
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
     RSVPSenderTSpec   ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);
     // TODO copy template and tspec from PATH message
