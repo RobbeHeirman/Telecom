@@ -657,7 +657,7 @@ void RSVPHost::tear_state(Timer *const, void *const user_data) {
         to_delete = &(state_pair->value);
         session.senders.erase(data->sender_id.to_key());
 
-        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id)};
+        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id, to_delete->t_spec)};
         data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
         data->host->output(0).push(packet);
 

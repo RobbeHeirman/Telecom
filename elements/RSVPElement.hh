@@ -227,21 +227,25 @@ protected:
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_path_err(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_path_err(const SessionID& session_id, const SenderID& sender_id,
+                                      const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode code,
+                                      uint16_t error_value);
 
     /**
      * Helper function that creates a new RESV_ERR packet
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
+                                      const RSVPSenderTSpec& t_spec);
 
     /**
      * Helper function that creates a new PATH_TEAR message
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
+                                       const RSVPSenderTSpec& t_spec);
 
     /**
      * Helper function that creates a new RESV_TEAR message
