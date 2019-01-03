@@ -85,7 +85,7 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
         const SenderID sender_id {SenderID::from_key(sender_key)};
 
         // Create new timers and initialise them (scheduling happens at the end of the function or in a handler)
-        receiver.send_data = new SendData {this, session_id, sender_id, true};
+        receiver.send_data = new SendData {this, session_id, sender_id};
         receiver.tear_data = new TearData {this, session_id, sender_id, false};
 
         receiver.refresh_timer = new Timer {push_resv, receiver.send_data};
@@ -138,7 +138,7 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
         if (resv.resv_confirm) {
             auto packet {generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key),
                                             state.t_spec, *resv.resv_confirm)};
-            ipencap(packet, resv.session->dest_addr, flow->filter_spec->src_addr);
+            ipencap(packet, resv.session->dest_addr, resv.hop->address);
             output(0).push(packet);
         }
     };
@@ -327,7 +327,7 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
     if (check(not session_pair, "RSVPHost received RESV_TEAR message that doesn't seem to belong here")) return;
     SessionStates& session {session_pair->value};
 
-    // Check whether there are receivers registered that match the RESV_TEAR message's flow descriptors
+    // Check whether there are sernders registered that match the RESV_TEAR message's flow descriptors
     for (auto flow {resv_tear.flow_descriptor_list.begin()}; flow != resv_tear.flow_descriptor_list.end(); ++flow) {
         const uint64_t sender_key {SenderID::to_key(**flow)};
         auto sender_pair {session.senders.find_pair(sender_key)};
@@ -350,7 +350,18 @@ void RSVPHost::parse_resv_conf(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*resv_conf.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV_CONF message that doesn't seem to belong here")) return;
-//    SessionStates& session {session_pair->value};
+    SessionStates& session {session_pair->value};
+
+    // Check whether there are receivers registered that match any of the RESV_CONF message's flow descriptors
+    for (auto flow {resv_conf.flow_descriptor_list.begin()}; flow != resv_conf.flow_descriptor_list.end(); ++flow) {
+        const uint64_t sender_key {SenderID::to_key(*flow->filter_spec)};
+        auto sender_pair {session.receivers.find_pair(sender_key)};
+        if (check(not sender_pair,
+                "RSVPHost received RESV_CONF message for a receiver that is not registerd to the session")) return;
+
+        // Mark the receiver as confirmed so outgoing RESV messages won't be requesting RESV_CONF messages anymore
+        sender_pair->value.confirmed = true;
+    };
 }
 
 int RSVPHost::session(const String& config, Element *const element, void *const, ErrorHandler *const errh) {
@@ -446,7 +457,7 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
     sender.policy_data = Vector<RSVPPolicyData> {};
 
     // Prepare the data for the new sender's timers
-    sender.send_data = new SendData {host, session_id, sender_id, true};
+    sender.send_data = new SendData {host, session_id, sender_id};
     sender.tear_data = new TearData {host, session_id, sender_id, true};
 
     // Create, initialise and add new timers for/to the sender
@@ -630,13 +641,13 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     const PathState& state {sender_pair->value};
 
     // Generate a new RESV message and push it
-    const auto packet {data->host->generate_resv(data->session_id, data->sender_id, R, state.t_spec, data->first)};
+    const auto packet {data->host->generate_resv(data->session_id, data->sender_id, R, state.t_spec,
+                                                 not state.confirmed)};
     data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
     timer->reschedule_after_msec(R);
-    data->first = false;
 }
 
 void RSVPHost::tear_state(Timer *const, void *const user_data) {

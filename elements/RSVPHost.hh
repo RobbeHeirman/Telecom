@@ -62,7 +62,6 @@ private:
         RSVPHost* host;
         SessionID session_id;
         SenderID sender_id;
-        bool first;
     };
     struct TearData
     {
@@ -89,6 +88,8 @@ private:
 
         TearData* tear_data;
         SendData* send_data;
+
+        bool confirmed {false};
     };
     typedef HashMap<uint64_t, PathState> StateMap;
 
