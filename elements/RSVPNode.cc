@@ -256,14 +256,13 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
         }
     }
     else{
+        p->kill();
         click_chatter("Reservation style not known");
         SessionID ses_id = SessionID::from_key(session_key);
         for(int i = 0; i < resv.flow_descriptor_list.size(); i++){
             uint64_t address_key = SenderID::to_key(*resv.flow_descriptor_list[i].filter_spec);
             SenderID sender_id = SenderID::from_key(address_key);
             if(!path_state_exists(address_key, session_key)){
-                p->kill();
-                return;
             }
             RSVPSenderTSpec t_spec = m_path_state[address_key][session_key].t_spec;
             WritablePacket* p = this->generate_resv_err(ses_id, sender_id,  t_spec, RSVPErrorSpec::UnkownResvStyle, 0);

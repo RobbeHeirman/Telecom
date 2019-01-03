@@ -669,7 +669,7 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
 }
 
 WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
-                                               const RSVPSenderTSpec& t_spec) {
+                                               const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode error_code, uint16_t error_value) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -686,7 +686,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvErr);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0, error_code, error_value);
     RSVPStyle     ::write(pos_ptr);
     RSVPFlowSpec  ::write(pos_ptr, t_spec.r, t_spec.b, t_spec.p, t_spec.m, t_spec.M);
     RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
