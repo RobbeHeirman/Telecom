@@ -122,8 +122,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         timeout->initialize(this);
 
         // We schedule the first calls
-        refresh->schedule_after_msec(state.R * 100);
-        timeout->schedule_after_msec(state.L * 100);
+        refresh->schedule_after_msec(state.R);
+        timeout->schedule_after_msec(state.L);
 
         //Add the timer pointers to the struct
         state.refresh_timer = refresh;
@@ -211,8 +211,8 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                     timeout->initialize(this);
 
                     // We schedule the first calls
-                    refresh->schedule_after_msec(r_state.R * 100);
-                    timeout->schedule_after_msec(r_state.L * 100);
+                    refresh->schedule_after_msec(r_state.R);
+                    timeout->schedule_after_msec(r_state.L);
 
                     //Add the timer pointers to the struct
                     r_state.refresh_timer = refresh;
@@ -516,7 +516,7 @@ void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Tim
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
-        t->reschedule_after_msec(state->R * 100);
+        t->reschedule_after_msec(state->R);
     }
 }
 
@@ -534,7 +534,7 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
         else{
             // It was refreshed before timeout next timeout round the state will be destroyed.
             state.is_timeout = true;
-            t->reschedule_after_msec(state.L * 100);
+            t->reschedule_after_msec(state.L);
         }
     }
 }
@@ -550,7 +550,7 @@ void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, 
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
-        t->reschedule_after_msec(state.R * 100);
+        t->reschedule_after_msec(state.R);
     }
 }
 
@@ -568,7 +568,7 @@ void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key,
         else{
             // It was refreshed before timeout next timeout round the state will be destroyed.
             state.is_timeout = true;
-            t->reschedule_after_msec(state.L * 100);
+            t->reschedule_after_msec(state.L);
         }
     }
 

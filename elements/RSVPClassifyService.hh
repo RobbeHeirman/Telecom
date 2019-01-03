@@ -20,6 +20,7 @@ public:
     const char* processing() const {return PUSH;}
 
     int configure(Vector<String>& config, ErrorHandler* errh);
+    void push(int port, Packet* p);
 
 private:
     RSVPNode* m_node;

@@ -37,6 +37,11 @@ public:
      * @brief: Handles a incomming RSVP message at the node. CURRENTLY: Path
      */
     void push(int port, Packet* p);
+
+    // Checking states
+    bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
+    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key);
+
 private:
 
     struct ReserveCallbackData {
@@ -92,11 +97,6 @@ private:
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& addr, bool path = true);
     bool delete_state(const uint64_t& sender_key, const uint64_t& session_key);
     bool delete_ff_rsv_state(const uint64_t& sender_key, const uint64_t& session_key);
-
-    // Checking states
-    bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
-    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key);
-
 
     //Calculate values
     float calculate_refresh(float r);
