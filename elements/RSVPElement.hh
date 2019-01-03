@@ -205,6 +205,24 @@ protected:
     RSVPObject* skip_integrity(const unsigned char* packet) const;
 
     /**
+     * Helper function that creates a new PATH packet
+     * @param session_id: contains session data
+     * @param sender_id: contains sender template data
+     */
+    WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
+                                  const RSVPSenderTSpec& t_spec);
+
+    /**
+     * Helper function that creates a new RESV function
+     * @param session_id: contains session data
+     * @param sender_id: contains sender template data
+     * @param confirm
+     * @return
+     */
+    WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
+                                  const RSVPSenderTSpec& t_spec, bool confirm);
+
+    /**
      * Helper function that creates a new PATH_ERR packet
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
@@ -231,6 +249,14 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id);
+
+    /**
+     * Helper function that creates a new RESV_CONF message
+     * @param session_id: contains session data
+     * @param sender_id: contains sender template data
+     */
+    WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id,
+                                       const RSVPSenderTSpec& t_spec, const RSVPResvConfirm& resv_confirm);
 
     /**
      * Function that sets the source and destination address in the IPEncap element
