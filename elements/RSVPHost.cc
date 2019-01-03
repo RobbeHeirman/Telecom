@@ -251,7 +251,6 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
     // Initialise these variables here as it can't be done inside the switch statement
     const auto err_value {ntohs(path_err.error_spec->err_value)};
     const auto ss {(uint16_t) (err_value / 0x4000)};
-    const auto cc {(uint16_t) (err_value % 0x1000)};
     String err_cause {};
 
     // Report the error
@@ -295,6 +294,7 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
 
         case RSVPErrorSpec::RSVPSystemError:
             click_chatter("RSVPHost received PATH_ERR message: RSVP system error with value %u", err_value);
+            break;
 
         default:
             click_chatter("RSVPHost received PATH_ERR message with an unknown/invalid error code %u (error value %u)",
