@@ -90,7 +90,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
              return;
          }
          else{
-             click_chatter("Couldn't find all the objects to generate error message")
+             click_chatter("Couldn't find all the objects to generate error message");
              return;
          }
 
