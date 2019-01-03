@@ -607,7 +607,7 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id) {
+WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id, uint8_t error_code) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -624,7 +624,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvErr);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
     RSVPHop       ::write(pos_ptr, sender_id.source_address);
-    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), 0x00);
+    RSVPErrorSpec ::write(pos_ptr, m_address_info.in_addr(), error_code);
     RSVPStyle     ::write(pos_ptr);
     // TODO copy style from RESV message
     RSVPFlowSpec  ::write(pos_ptr, 0.0, 0.0, 0.0, 0, 0);    // TODO

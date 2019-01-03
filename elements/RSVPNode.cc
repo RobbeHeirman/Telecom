@@ -161,101 +161,110 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     Resv resv;
     find_resv_ptrs((unsigned char*) p, resv);
 
-    // We loop over all flowDescriptors
-    for(auto i = 0; i < resv.flow_descriptor_list.size(); i++){
+    // We look for the corresponding session in our PathState Table.
+    uint64_t session_key = session_to_key(resv.session);
 
-        // Since this is FF style we look for the sender corresponding with the filterspec
-        uint64_t address_key = SenderID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
-        if(m_path_state.find(address_key) != m_path_state.end()) {
+    if(resv.style->sharing == 0b01 && resv.style->s_selection == 0b010) { //TODO: maybe we need to map those styles in an enum aswell
+        // We loop over all flowDescriptors
+        for (auto i = 0; i < resv.flow_descriptor_list.size(); i++) {
 
-            // We look for the corresponding session in our PathState Table.
-            uint64_t session_key = session_to_key(resv.session);
-            if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()){
+            // Since this is FF style we look for the sender corresponding with the filterspec
+            uint64_t address_key = SenderID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
+            if (m_path_state.find(address_key) != m_path_state.end()) {
 
-                //TODO: Pass to admission/Policy control should happen here.
+                if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()) {
 
-                // We make a new reservation state
-                // We check if this sender is already in State map. Else we make an empty entry for this sender
-                if(m_ff_resv_states.find(address_key) == m_ff_resv_states.end()){
-                    m_ff_resv_states[address_key] = HashTable < uint64_t, ReserveState >();
+                    // We make a new reservation state
+                    // We check if this sender is already in State map. Else we make an empty entry for this sender
+                    if (m_ff_resv_states.find(address_key) == m_ff_resv_states.end()) {
+                        m_ff_resv_states[address_key] = HashTable<uint64_t, ReserveState>();
+                    }
+
+                    // We don't have this reservation in our reservation map
+                    if (!resv_ff_exists(address_key, session_key)) {
+
+                        // We add a new resv state here
+                        ReserveState r_state;
+
+                        //Fill in the reserve state data
+                        r_state.session = *resv.session;
+                        r_state.next_hop = resv.hop->address;
+                        r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                        r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
+                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                        r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                        // Time values
+                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                        r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                        // Create the callback data
+                        ReserveCallbackData *rsv_callback = new ReserveCallbackData;
+                        rsv_callback->sender_key = address_key;
+                        rsv_callback->session_key = session_key;
+                        rsv_callback->me = this;
+
+                        // Create the refresh and timeout timers
+                        Timer *refresh = new Timer(&RSVPNode::handle_reserve_refresh, rsv_callback);
+                        Timer *timeout = new Timer(&RSVPNode::handle_reserve_time_out, rsv_callback);
+                        refresh->initialize(this);
+                        timeout->initialize(this);
+
+                        // We schedule the first calls
+                        refresh->schedule_after_msec(r_state.R);
+                        timeout->schedule_after_msec(r_state.L);
+
+                        //Add the timer pointers to the struct
+                        r_state.refresh_timer = refresh;
+                        r_state.timeout_timer = timeout;
+                        r_state.call_back_data = rsv_callback;
+
+                        m_ff_resv_states[address_key][session_key] = r_state;
+
+                    } else {
+
+                        // We modify resv state here
+                        ReserveState &r_state = m_ff_resv_states[address_key][session_key];
+                        //Fill in the reserve state data
+                        r_state.session = *resv.session;
+                        r_state.next_hop = resv.hop->address;
+                        r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                        r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
+                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                        r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                        // Time values
+                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
+                        r_state.L = this->calculate_L(resv.time_values->refresh);
+
+                        r_state.is_timeout = false;
+
+                    }
+                    // need PHop from pathstate to forward
+                    PathState &state = m_path_state[address_key][session_key];
+                    //Signaling that the IPEncap with the correct src and dst addresses.
+                    ipencap(p, m_interfaces[port], state.prev_hop);
+                    output(port).push(p);
+                } else {
+                    click_chatter("Found a NONE existing session in receiver message.");
                 }
 
-                // We don't have this reservation in our reservation map
-                if(!resv_ff_exists(address_key, session_key)){
-
-                    // We add a new resv state here
-                    ReserveState r_state;
-
-                    //Fill in the reserve state data
-                    r_state.session = *resv.session;
-                    r_state.next_hop = resv.hop->address;
-                    r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
-                    r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
-                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                    r_state.L = this->calculate_L(resv.time_values->refresh);
-
-                    // Time values
-                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                    r_state.L = this->calculate_L(resv.time_values->refresh);
-
-                    // Create the callback data
-                    ReserveCallbackData * rsv_callback = new ReserveCallbackData;
-                    rsv_callback->sender_key = address_key;
-                    rsv_callback->session_key = session_key;
-                    rsv_callback->me = this;
-
-                    // Create the refresh and timeout timers
-                    Timer *refresh = new Timer(&RSVPNode::handle_reserve_refresh, rsv_callback);
-                    Timer *timeout = new Timer(&RSVPNode::handle_reserve_time_out, rsv_callback);
-                    refresh->initialize(this);
-                    timeout->initialize(this);
-
-                    // We schedule the first calls
-                    refresh->schedule_after_msec(r_state.R);
-                    timeout->schedule_after_msec(r_state.L);
-
-                    //Add the timer pointers to the struct
-                    r_state.refresh_timer = refresh;
-                    r_state.timeout_timer = timeout;
-                    r_state.call_back_data = rsv_callback;
-
-                    m_ff_resv_states[address_key][session_key] = r_state;
-
-                }
-
-                else{
-
-                    // We modify resv state here
-                    ReserveState& r_state = m_ff_resv_states[address_key][session_key];
-                    //Fill in the reserve state data
-                    r_state.session = *resv.session;
-                    r_state.next_hop = resv.hop->address;
-                    r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
-                    r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
-                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                    r_state.L = this->calculate_L(resv.time_values->refresh);
-
-                    // Time values
-                    r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                    r_state.L = this->calculate_L(resv.time_values->refresh);
-
-                    r_state.is_timeout = false;
-
-                }
-                // need PHop from pathstate to forward
-                PathState &state = m_path_state[address_key][session_key];
-                //Signaling that the IPEncap with the correct src and dst addresses.
-                ipencap(p, m_interfaces[port], state.prev_hop);
-                output(port).push(p);
-            }
-            else {
-                click_chatter("Found a NONE existing session in receiver message.");
+            } else {
+                click_chatter("Found a filter spec without matching sender spec!");
             }
 
         }
-        else{
-            click_chatter("Found a filter spec without matching sender spec!");
+    }
+    else{
+        click_chatter("Reservation style not known");
+        SessionID ses_id = SessionID::from_key(session_key);
+        for(int i = 0; i < resv.flow_descriptor_list.size(); i++){
+            SenderID sender_id = SenderID::from_key(SenderID::to_key(*resv.flow_descriptor_list[i].filter_spec));
+            WritablePacket* p = this->generate_resv_err(ses_id, sender_id, RSVPErrorSpec::UnkownResvStyle);
+            output(port).push(p);
+
         }
+
 
     }
 }
@@ -501,7 +510,6 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
     assert(rsv);
     rsv->me->time_out_reserve_state(rsv->sender_key, rsv->session_key, timer);
 }
-
 
 //***********************************************
 

@@ -216,7 +216,7 @@ protected:
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id, uint8_t error_code = 0b00);
 
     /**
      * Helper function that creates a new PATH_TEAR message

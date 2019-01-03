@@ -282,8 +282,6 @@ struct RSVPStyle : public RSVPObject
 #else
 #   error "unknown byte order"
 #endif
-
-
     static void write(unsigned char*& packet,
                       const uint8_t sharing = 0b01,
                       const uint8_t sender_selection = 0b010) {
