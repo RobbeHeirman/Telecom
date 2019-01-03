@@ -16,6 +16,8 @@ CLICK_DECLS
 
 class RSVPHost: public RSVPElement
 {
+    struct PathState;
+
 public:
     // The constructor and destructor
     RSVPHost();
@@ -55,20 +57,17 @@ public:
     static int release(const String& config, Element* element, void*, ErrorHandler* errh);
     void add_handlers();
 
+    // Utility functions
+    static void clear_state(PathState& state);
+
 private:
     // Timer callback data
-    struct PathData
+    struct SendData
     {
         RSVPHost* host;
         SessionID session_id;
         SenderID sender_id;
-    };
-    struct ResvData
-    {
-        RSVPHost* host;
-        SessionID session_id;
-        SenderID sender_id;
-        bool confirm;
+        bool first;
     };
     struct TearData
     {
@@ -94,9 +93,10 @@ private:
         Timer* refresh_timer;
 
         TearData* tear_data;
-        void* send_data;
+        SendData* send_data;
     };
     typedef HashMap<uint64_t, PathState> StateMap;
+
     struct SessionStates
     {
         StateMap senders;
