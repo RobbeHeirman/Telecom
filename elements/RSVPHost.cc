@@ -641,11 +641,6 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
 
-    // TODO remove
-    const auto p {data->host->generate_path_err(data->session_id, data->sender_id)};
-    data->host->ipencap(p, data->sender_id.source_address, data->session_id.destination_address);
-    data->host->output(0).push(p);
-
     // Set the timer again and make sure only the first message contains a ResvConf object
     timer->reschedule_after_msec(R);
     data->first = false;
