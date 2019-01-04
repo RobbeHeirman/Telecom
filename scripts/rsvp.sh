@@ -41,6 +41,6 @@ rsvp HOST1 session $ID, $DST
 rsvp HOST2 session $ID, $DST
 rsvp HOST1 sender $ID, $SRC
 rsvp HOST2 reserve $ID, CONF true
-rsvp HOST2 release $ID
+#rsvp HOST2 release $ID
 #rsvp HOST1 release $ID
 

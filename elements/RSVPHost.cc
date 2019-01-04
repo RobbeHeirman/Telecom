@@ -620,7 +620,10 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again
-    timer->reschedule_after_msec(R);    // TODO reschedule in interval [0.5*R, 1.5*R] at random
+    const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
+    timer->reschedule_after_msec(refresh);
+
+    click_chatter("Next PATH message in %u msec", refresh);
 }
 
 void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
@@ -648,7 +651,10 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
-    timer->reschedule_after_msec(R);
+    const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
+    timer->reschedule_after_msec(refresh);
+
+    click_chatter("Next RESV message in %u msec", refresh);
 }
 
 void RSVPHost::tear_state(Timer *const, void *const user_data) {
