@@ -256,14 +256,14 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec);
+                                       const RSVPSenderTSpec& t_spec, in_addr hop_address);
 
     /**
      * Helper function that creates a new RESV_TEAR message
      * @param session_id: contains session data
      * @param sender_id: contains sender template data
      */
-    WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id);
+    WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id, in_addr hop_address);
 
     /**
      * Helper function that creates a new RESV_CONF message

@@ -310,8 +310,6 @@ bool RSVPElement::find_resv_err_ptrs(const unsigned char *const packet, ResvErr&
         object = (RSVPObject*) (byte_pointer + ntohs(object->length));
     }
 
-    // TODO skip Null objects?
-
     // Make sure the next object is a FlowSpec object
     if (check(object->class_num != RSVPObject::FlowSpec,
             "RESV_ERR message Style object isn't followed by a FlowSpec object")) return false;
@@ -686,7 +684,8 @@ WritablePacket* RSVPElement::generate_path_err(const SessionID& session_id, cons
 }
 
 WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
-                                               const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode error_code, uint16_t error_value) {
+                                               const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode error_code,
+                                               uint16_t error_value) {
 
     // Create a new packet
     const unsigned int size{sizeof(RSVPHeader) + sizeof(RSVPSession)  + sizeof(RSVPHop)        + sizeof(RSVPErrorSpec)
@@ -715,7 +714,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
 }
 
 WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
-                                                const RSVPSenderTSpec& t_spec) {
+                                                const RSVPSenderTSpec& t_spec, const in_addr hop_address) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPHop)
@@ -741,7 +740,8 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     return packet;
 }
 
-WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const SenderID& sender_id) {
+WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const SenderID& sender_id,
+                                                const in_addr hop_address) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession)    + sizeof(RSVPHop)
@@ -757,7 +757,7 @@ WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, con
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvTear);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop       ::write(pos_ptr, m_address_info.in_addr());
+    RSVPHop       ::write(pos_ptr, hop_address);
     RSVPStyle     ::write(pos_ptr);
     RSVPFilterSpec::write(pos_ptr, sender_id.source_address, sender_id.source_port);
 
