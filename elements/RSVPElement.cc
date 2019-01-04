@@ -712,7 +712,7 @@ WritablePacket* RSVPElement::generate_resv_err(const SessionID& session_id, cons
 }
 
 WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
-        const RSVPSenderTSpec& t_spec) {
+        const RSVPSenderTSpec& t_spec, const in_addr hop_address) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader)         + sizeof(RSVPSession)     + sizeof(RSVPHop)
@@ -728,7 +728,7 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader        ::write(pos_ptr, RSVPHeader::PathTear);
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop           ::write(pos_ptr, m_address_info.in_addr());
+    RSVPHop           ::write(pos_ptr, hop_address);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
     RSVPSenderTSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
                                        htonl(t_spec.m), htonl(t_spec.M));
@@ -739,7 +739,7 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
 }
 
 WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, const SenderID& sender_id,
-        const RSVPSenderTSpec& t_spec) {
+        const RSVPSenderTSpec& t_spec, const in_addr hop_address) {
 
     // Create a new packet
     const unsigned int size {sizeof(RSVPHeader) + sizeof(RSVPSession)    + sizeof(RSVPHop)
@@ -755,7 +755,7 @@ WritablePacket* RSVPElement::generate_resv_tear(const SessionID& session_id, con
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader    ::write(pos_ptr, RSVPHeader::ResvTear);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop       ::write(pos_ptr, m_address_info.in_addr());
+    RSVPHop       ::write(pos_ptr, hop_address);
     RSVPStyle     ::write(pos_ptr);
     RSVPFlowSpec  ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
                                    htonl(t_spec.m), htonl(t_spec.M));
