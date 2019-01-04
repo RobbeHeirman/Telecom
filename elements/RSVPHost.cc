@@ -105,7 +105,7 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
 
     // (Re-)set the timeout timer of the state and set the prev_hop address
     auto state = session.receivers.findp(sender_key);
-//    if (check(not state->timeout_timer, "RSVPHost has local session with invalid timer")) return;
+    if (check(not state->timeout_timer, "RSVPHost has local session with invalid timer")) return;
     state->timeout_timer->reschedule_after_msec((K + 0.5) * 1.5 * path.time_values->refresh);
     state->prev_hop = path.hop->address;
 }
@@ -642,7 +642,8 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
 
     // Generate a new RESV message and push it
     const auto packet {data->host->generate_resv(data->session_id, data->sender_id, R, state.t_spec,
-                                                 not state.confirmed)};
+                                                 data->session_id.destination_address, not state.confirmed)};
+    // The hop address can be the destination address as this is the only host to send RESV messages
     data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
     data->host->output(0).push(packet);
 

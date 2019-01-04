@@ -229,7 +229,7 @@ protected:
      * @return
      */
     WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
-                                  const RSVPSenderTSpec& t_spec, bool confirm);
+                                  const RSVPSenderTSpec& t_spec, in_addr hop_addr, bool confirm);
 
     /**
      * Helper function that creates a new PATH_ERR packet

@@ -625,7 +625,7 @@ WritablePacket* RSVPElement::generate_path(const SessionID& session_id, const Se
 }
 
 WritablePacket* RSVPElement::generate_resv(const SessionID& session_id, const SenderID& sender_id, const uint32_t R,
-                                           const RSVPSenderTSpec& t_spec, const bool confirm) {
+                                           const RSVPSenderTSpec& t_spec, const in_addr hop_addr, const bool confirm) {
 
     // Create a new packet
     const unsigned long size {sizeof(RSVPHeader)     + sizeof(RSVPSession)                    + sizeof(RSVPHop)
@@ -642,7 +642,7 @@ WritablePacket* RSVPElement::generate_resv(const SessionID& session_id, const Se
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
     RSVPSession   ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop       ::write(pos_ptr, sender_id.source_address);
+    RSVPHop       ::write(pos_ptr, hop_addr);
     RSVPTimeValues::write(pos_ptr, R);
     if (confirm) {
         RSVPResvConfirm::write(pos_ptr, session_id.destination_address);

@@ -386,7 +386,7 @@ struct RSVPFlowSpec : public RSVPIntServHeader
         flow_spec->c_type                     = 0x02;
         flow_spec->version                    = 0x0;
         flow_spec->o_length                   = htons(0x0007);
-        flow_spec->service_header.service_nr  = 0x01;
+        flow_spec->service_header.service_nr  = 0x05;
         flow_spec->service_header.length      = htons(0x0006);
         flow_spec->param_header.param_nr      = 0x7f;
         flow_spec->param_header.length        = htons(0x0005);
