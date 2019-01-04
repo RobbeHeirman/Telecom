@@ -81,6 +81,11 @@ struct SenderID
     static inline SenderID from_rsvp_sendertemplate(RSVPSenderTemplate* send){
         return from_key(to_key(*send));
     }
+
+    static inline SenderID from_rsvp_filter_spec(RSVPFilterSpec spc) {
+
+        return from_key(to_key(spc));
+    }
 };
 
 

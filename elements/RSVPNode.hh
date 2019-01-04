@@ -15,6 +15,8 @@ CLICK_DECLS
  * see rsvp messages.
  */
 
+
+
 class RSVPNode: public RSVPElement {
 
 
@@ -28,6 +30,13 @@ public:
     const char* port_count() const {return "-/-";}// Takes a rsvp modes and handles accordingly and outputs again 1/1
     const char* processing() const {return PUSH;}
 
+    /**
+     * Handlers
+     * @return Error/Succes int
+     */
+    static int release(const String& conf, Element *e, void*, ErrorHandler* errh);
+    void add_handlers();
+
     int configure(Vector<String>& config, ErrorHandler* errh);
 
     /**
@@ -37,6 +46,8 @@ public:
      * @brief: Handles a incomming RSVP message at the node. CURRENTLY: Path
      */
     void push(int port, Packet* p);
+
+
 
     // Checking states
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
@@ -61,7 +72,8 @@ private:
             delete call_back_data;
         }
         RSVPSession session;
-        IPAddress next_hop; // set in reservation state
+        IPAddress next_hop; // set in reservation state, downstream requests
+        IPAddress prev_hop;
         RSVPFlowSpec flowSpec;
         RSVPFilterSpec filterSpec;
         float R;
@@ -121,7 +133,9 @@ private:
 
 private:
     Vector<IPAddress> m_interfaces;
-    HashTable<uint64_t, HashTable <uint64_t, ReserveState>> m_ff_resv_states;
+    typedef HashTable<uint64_t, HashTable <uint64_t, ReserveState>> FFReserveMap;
+    FFReserveMap m_ff_resv_states;
+    Vector<uint64_t> m_local_session_id; // Used for RELEASE handler calls
     unsigned int K = 3; //Constant with default 3 (see RFC)
 };
 

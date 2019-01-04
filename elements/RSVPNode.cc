@@ -30,6 +30,58 @@ int RSVPNode::configure(Vector<String>& config, ErrorHandler *const errh) {
     return 0;
 }
 
+int RSVPNode::release(const String& conf, Element *e, void*, ErrorHandler* errh){
+
+    RSVPNode* me = (RSVPNode*) e;
+    Vector<String> vconf;
+    cp_argvec(conf, vconf);
+    int session_id = 0;
+    if(Args(vconf, me, errh).read_mp("SessionID", session_id).complete() < 0){
+        return -1;
+    }
+
+    if(session_id >= me->m_local_session_id.size()){
+        errh->error("Session with ID %d doesn't exist", session_id);
+        return -1;
+    }
+
+    uint64_t ses_id = me->m_local_session_id[session_id];
+
+    for(RSVPNode::FFReserveMap::iterator it = me->m_ff_resv_states.begin(); it != me->m_ff_resv_states.end(); it++){
+
+        if( it->second.find(ses_id) != it->second.end() ) {
+
+            ReserveState& rsv_state = it->second[ses_id];
+            SenderID ssid = SenderID::from_rsvp_filter_spec(rsv_state.filterSpec);
+            SessionID sesid = SessionID::from_rsvp_session(&rsv_state.session);
+
+            WritablePacket* p = me->generate_resv_tear(sesid, ssid);
+            me->ipencap(p, me->m_interfaces[0], rsv_state.prev_hop);
+            me->output(0).push(p);
+
+        }
+    }
+
+    for(PathStateMap::iterator it = me->m_path_state.begin(); it != me->m_path_state.end(); it++){
+
+        if( it->second.find(ses_id) != it->second.end() ) {
+
+            PathState& pathstate = it->second[ses_id];
+            SenderID ssid = SenderID::from_rsvp_sendertemplate(&pathstate.sender_template);
+            SessionID sesd = SessionID::from_rsvp_session(&pathstate.session);
+
+            WritablePacket* p = me->generate_path_tear(sesd, ssid, pathstate.t_spec);
+            me->ipencap(p, me->m_interfaces[0], pathstate.session.dest_addr);
+            me->output(0).push(p);
+        }
+    }
+
+    return 0;
+}
+
+void RSVPNode::add_handlers() {
+
+}
 
 void RSVPNode::push(int port, Packet* p){
 
@@ -144,6 +196,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
         state.path_call_back_data = path_callback_data;
 
         m_path_state[byte_sender][byte_session] = state;
+        m_local_session_id.push_back(byte_session);
     }
     else{
 
@@ -184,9 +237,10 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
             // Since this is FF style we look for the sender corresponding with the filterspec
             uint64_t address_key = SenderID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
             if (m_path_state.find(address_key) != m_path_state.end()) {
-
+                // We need the corresponding pathState
                 if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()) {
-
+                    // need PHop from pathstate to forward
+                    PathState &state = m_path_state[address_key][session_key];
                     // We make a new reservation state
                     // We check if this sender is already in State map. Else we make an empty entry for this sender
                     if (m_ff_resv_states.find(address_key) == m_ff_resv_states.end()) {
@@ -201,6 +255,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
                         //Fill in the reserve state data
                         r_state.session = *resv.session;
+                        r_state.prev_hop = state.prev_hop;
                         r_state.next_hop = resv.hop->address;
                         r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
@@ -240,6 +295,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         ReserveState &r_state = m_ff_resv_states[address_key][session_key];
                         //Fill in the reserve state data
                         r_state.session = *resv.session;
+                        r_state.prev_hop = state.prev_hop;
                         r_state.next_hop = resv.hop->address;
                         r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
@@ -253,8 +309,6 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.is_timeout = false;
 
                     }
-                    // need PHop from pathstate to forward
-                    PathState &state = m_path_state[address_key][session_key];
                     //Signaling that the IPEncap with the correct src and dst addresses.
                     ipencap(p, m_interfaces[port], state.prev_hop);
                     output(port).push(p);
@@ -296,6 +350,7 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
     uint64_t session_key = this->session_to_key(tear.session);
 
     if(delete_state(sender_key, session_key, tear.hop->address)){
+        delete_ff_rsv_state(sender_key, session_key);
         ipencap(p, tear.sender_template->src_addr, tear.session->dest_addr);
         output(port).push(p);
         return true;
@@ -326,8 +381,9 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
                 // So we make a copy of the Addres of NHOP.
                 PathState* state = &m_path_state[address_key][session_key];
                 in_addr addr = state->prev_hop;
-                if(this->delete_state(address_key, session_key, state->prev_hop, false)){ // If it's successfully deleted.
+                if(this->delete_ff_rsv_state(address_key, session_key)){ // If it's successfully deleted.
                     ipencap(p, m_interfaces[port], addr);
+                    delete_state(address_key, session_key);
                     output(port).push(p);
 
                 }
