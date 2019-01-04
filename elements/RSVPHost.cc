@@ -620,7 +620,8 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again
-    timer->reschedule_after_msec(R);    // TODO reschedule in interval [0.5*R, 1.5*R] at random
+    const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
+    timer->reschedule_after_msec(refresh);
 }
 
 void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
@@ -648,7 +649,8 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     data->host->output(0).push(packet);
 
     // Set the timer again and make sure only the first message contains a ResvConf object
-    timer->reschedule_after_msec(R);
+    const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
+    timer->reschedule_after_msec(refresh);
 }
 
 void RSVPHost::tear_state(Timer *const, void *const user_data) {
@@ -670,7 +672,8 @@ void RSVPHost::tear_state(Timer *const, void *const user_data) {
         to_delete = &(state_pair->value);
         session.senders.erase(data->sender_id.to_key());
 
-        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id, to_delete->t_spec)};
+        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id, to_delete->t_spec,
+                                                    data->sender_id.source_address)};
         data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
         data->host->output(0).push(packet);
 
@@ -680,7 +683,8 @@ void RSVPHost::tear_state(Timer *const, void *const user_data) {
         to_delete = &(state_pair->value);
         session.receivers.erase(data->sender_id.to_key());
 
-        auto packet {data->host->generate_resv_tear(data->session_id, data->sender_id)};
+        auto packet {data->host->generate_resv_tear(data->session_id, data->sender_id, to_delete->t_spec,
+                                                    data->session_id.destination_address)};
         data->host->ipencap(packet, data->session_id.destination_address, state_pair->value.prev_hop);
         data->host->output(0).push(packet);
     }
