@@ -527,7 +527,22 @@ int RSVPHost::release(const String& config, Element *const element, void *const,
     if (not session_pair) {
         return errh->error("Session with ID %d doesn't exist", id);
     }
+    const SessionID session_id {SessionID::from_key(session_pair->value)};
     Session& session {host->m_sessions.find_pair(session_pair->value)->value};
+
+    // Send an RSVP message to notify other nodes
+    if (session.is_sender) {
+        const auto packet {host->generate_path_tear(session_id, session.sender, session.t_spec,
+                                                    host->m_address_info.in_addr())};
+        host->ipencap(packet, session.sender.source_address, session_id.destination_address);
+        host->output(0).push(packet);
+    }
+    else {
+        const auto packet {host->generate_resv_tear(session_id, session.sender, session.t_spec,
+                                                    host->m_address_info.in_addr())};
+        host->ipencap(packet, session_id.destination_address, session.prev_hop);
+        host->output(0).push(packet);
+    }
 
     // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
     host->m_sessions.erase(session_pair->value);
