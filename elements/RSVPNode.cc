@@ -89,14 +89,13 @@ int RSVPNode::release(const String& conf, Element *e, void*, ErrorHandler* errh)
 
 void RSVPNode::add_handlers() {
 
+    add_write_handler("release", &release, (void*)0);
 }
 
 void RSVPNode::push(int port, Packet* p){
-
     // We know a RSVP message start with the RSVP header.
     // We can cast directly.
-    RSVPHeader* header = (RSVPHeader*) p->data();
-
+    auto header = (RSVPHeader*) p->data();
     // If we receive a PATH message
     if(header->msg_type == RSVPHeader::Type::Path){
         handle_path_message(p, port);
@@ -138,12 +137,13 @@ void RSVPNode::push(int port, Packet* p){
 }
 
 void RSVPNode::handle_path_message(Packet *p, int port) {
-
     // Block of info we need to find
     Path path {};
-     if(!find_path_ptrs((unsigned char*) p, path)){
+    auto header = (RSVPHeader*) p->data();
+     if(!find_path_ptrs( (const unsigned char*) header, path)){
          p->kill();
          if(path.session && path.sender.sender && path.sender.tspec){
+             click_chatter("???");
              SessionID ses_id{SessionID::from_rsvp_session(path.session)};
              SenderID sender_id{SenderID::from_rsvp_sendertemplate(path.sender.sender)};
              generate_path_err(ses_id, sender_id, *path.sender.tspec, path.error_code, path.error_value);
@@ -161,6 +161,8 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     // Converting packets to 64 bit words so we can use those as keys for our HashMap.
     uint64_t byte_session = this->session_to_key(path.session);
     uint64_t byte_sender = this->sender_template_to_key(path.sender.sender);
+
+    click_chatter(String("Receiving path message from Session: ", byte_session).c_str());
 
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
