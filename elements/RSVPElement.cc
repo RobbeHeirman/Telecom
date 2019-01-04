@@ -730,7 +730,7 @@ WritablePacket* RSVPElement::generate_path_tear(const SessionID& session_id, con
     // The write functions return a pointer to the position right after the area they wrote to
     RSVPHeader        ::write(pos_ptr, RSVPHeader::PathTear);
     RSVPSession       ::write(pos_ptr, session_id.destination_address, session_id.proto, session_id.destination_port);
-    RSVPHop           ::write(pos_ptr, m_address_info.in_addr());
+    RSVPHop           ::write(pos_ptr, hop_address);
     RSVPSenderTemplate::write(pos_ptr, sender_id.source_address, sender_id.source_port);
     RSVPSenderTSpec   ::write(pos_ptr, convert_float(t_spec.r), convert_float(t_spec.b), convert_float(t_spec.p),
                                        ntohl(t_spec.m), ntohl(t_spec.M));
