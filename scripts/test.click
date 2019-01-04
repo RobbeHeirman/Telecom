@@ -1,6 +1,6 @@
 
-host1::RSVPHost();
-host2::RSVPHost();
+host1::RSVPHost(192.168.10.1);
+host2::RSVPHost(192.168.11.1);
 
 host1
 	-> EtherEncap(0x0800, 2:2:2:2:2:2, 3:3:3:3:3:3)

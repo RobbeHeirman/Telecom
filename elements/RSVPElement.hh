@@ -229,7 +229,7 @@ protected:
      * @return
      */
     WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
-                                  const RSVPSenderTSpec& t_spec, in_addr hop_addr, bool confirm);
+                                  const RSVPSenderTSpec& t_spec, bool confirm);
 
     /**
      * Helper function that creates a new PATH_ERR packet
@@ -256,7 +256,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec, in_addr hop_address);
+                                       const RSVPSenderTSpec& t_spec);
 
     /**
      * Helper function that creates a new RESV_TEAR message
@@ -264,7 +264,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec, in_addr hop_address);
+                                       const RSVPSenderTSpec& t_spec);
 
     /**
      * Helper function that creates a new RESV_CONF message

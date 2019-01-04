@@ -52,54 +52,34 @@ public:
     static int release(const String& config, Element* element, void*, ErrorHandler* errh);
     void add_handlers();
 
-    // Utility functions
-    static void clear_state(PathState& state);
-
 private:
     // Timer callback data
     struct SendData
     {
         RSVPHost* host;
         SessionID session_id;
-        SenderID sender_id;
-    };
-    struct TearData
-    {
-        RSVPHost* host;
-        SessionID session_id;
-        SenderID sender_id;
-        bool sender;
+        bool confirmed {false};
     };
 
     // Timer callback functions
     static void push_path(Timer* timer, void* user_data);
     static void push_resv(Timer* timer, void* user_data);
-    static void tear_state(Timer* timer, void* user_data);
 
     // The current sessions
-    struct PathState
+    struct Session
     {
-        IPAddress prev_hop;
-        Vector<RSVPPolicyData> policy_data;
-        RSVPSenderTSpec t_spec;
+        IPAddress prev_hop {};
+        Vector<RSVPPolicyData> policy_data {};
+        RSVPSenderTSpec t_spec {};
 
-        Timer* timeout_timer;
-        Timer* refresh_timer;
+        Timer* refresh_timer {nullptr};
+        SendData* send_data {nullptr};
 
-        TearData* tear_data;
-        SendData* send_data;
-
-        bool confirmed {false};
+        SenderID sender {};
+        bool is_sender {false};     // This is initialised as false; the sender hanlder will set it to true
     };
-    typedef HashMap<uint64_t, PathState> StateMap;
-
-    struct SessionStates
-    {
-        StateMap senders;
-        StateMap receivers;
-    };
-    typedef HashMap<uint64_t, SessionStates> SessionStatesMap;
-    SessionStatesMap m_sessions;
+    typedef HashMap<uint64_t, Session> SessionMap;
+    SessionMap m_sessions;
 
     typedef HashMap<int, uint64_t> SessionIDMap;
     SessionIDMap m_session_ids;
@@ -111,7 +91,8 @@ private:
     static constexpr uint32_t s_min_unit {100};
     static constexpr uint32_t s_max_size {1500};
 
-    static constexpr uint32_t R {10000};    // TODO set to 30000 (10000 for testing)
+    // Recommended value for R (RFC 2205) is 30000, but 10000 is a little easier to test with
+    static constexpr uint32_t R {10000};
     static constexpr uint8_t K {3};
 };
 
