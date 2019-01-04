@@ -55,9 +55,17 @@ int RSVPNode::release(const String& conf, Element *e, void*, ErrorHandler* errh)
             SenderID ssid = SenderID::from_rsvp_filter_spec(rsv_state.filterSpec);
             SessionID sesid = SessionID::from_rsvp_session(&rsv_state.session);
 
-            WritablePacket* p = me->generate_resv_tear(sesid, ssid);
-            me->ipencap(p, me->m_interfaces[0], rsv_state.prev_hop);
-            me->output(0).push(p);
+            if(me->m_path_state[ssid.to_key()].find(session_id) != me->m_path_state[ssid.to_key()].end()){
+                click_chatter("Release handler vind pathstate niet");
+            }
+            else{
+
+                PathState& pstate = me->m_path_state[ssid.to_key()][session_id];
+                WritablePacket* p = me->generate_resv_tear(sesid, ssid, pstate.t_spec, me->m_interfaces[0]);
+                me->ipencap(p, me->m_interfaces[0], rsv_state.prev_hop);
+                me->output(0).push(p);
+            }
+
 
         }
     }
@@ -70,7 +78,7 @@ int RSVPNode::release(const String& conf, Element *e, void*, ErrorHandler* errh)
             SenderID ssid = SenderID::from_rsvp_sendertemplate(&pathstate.sender_template);
             SessionID sesd = SessionID::from_rsvp_session(&pathstate.session);
 
-            WritablePacket* p = me->generate_path_tear(sesd, ssid, pathstate.t_spec);
+            WritablePacket* p = me->generate_path_tear(sesd, ssid, pathstate.t_spec, me->m_interfaces[0]);
             me->ipencap(p, me->m_interfaces[0], pathstate.session.dest_addr);
             me->output(0).push(p);
         }
