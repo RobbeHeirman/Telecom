@@ -114,11 +114,17 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
         session.prev_hop = resv.hop->address;
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
-        if (not session.send_data->confirmed and resv.resv_confirm) {
+        if (not resv.resv_confirm) {
+            session.send_data->confirmed = true;
+        }
+        else if (not session.send_data->confirmed) {
             auto packet {generate_resv_conf(SessionID::from_key(session_key), session.sender, session.t_spec,
                                             *resv.resv_confirm)};
             ipencap(packet, m_address_info.in_addr(), resv.hop->address);
             output(0).push(packet);
+
+            // Set the confirmed bool to true so that only one RESV_CONF message is sent
+            session.send_data->confirmed = true;
         }
     };
 }
