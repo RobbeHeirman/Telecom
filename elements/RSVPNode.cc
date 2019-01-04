@@ -142,7 +142,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     auto header = (RSVPHeader*) p->data();
      if(!find_path_ptrs( (const unsigned char*) header, path)){
          p->kill();
-         if(path.session && path.sender.sender && path.sender.tspec){
+         if(path.session == nullptr or path.sender.sender == nullptr or path.sender.tspec == nullptr){
              click_chatter("???");
              SessionID ses_id{SessionID::from_rsvp_session(path.session)};
              SenderID sender_id{SenderID::from_rsvp_sendertemplate(path.sender.sender)};
@@ -159,8 +159,13 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
     // "State is defined by < session, sender template>"
     // Converting packets to 64 bit words so we can use those as keys for our HashMap.
+    if(path.session == nullptr or path.sender.sender == nullptr){
+        click_chatter("Null ptr");
+    }
+
     uint64_t byte_session = this->session_to_key(path.session);
-    uint64_t byte_sender = this->sender_template_to_key(path.sender.sender);
+    click_chatter("happens here");
+    uint64_t byte_sender = SenderID::to_key(*path.sender.sender); //TODO SEGFAULT
 
     click_chatter(String("Receiving path message from Session: ", byte_session).c_str());
 
