@@ -522,7 +522,7 @@ int RSVPHost::release(const String& config, Element *const element, void *const,
         return result;
     }
 
-    // Check whether a session with the give ID does actually exist
+    // Check whether a session with the given ID does actually exist
     const auto session_pair {host->m_session_ids.find_pair(id)};
     if (not session_pair) {
         return errh->error("Session with ID %d doesn't exist", id);

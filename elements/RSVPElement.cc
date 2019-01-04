@@ -16,6 +16,7 @@ bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) 
     // Make sure path is initialised properly to avoid reporting false duplicate errors
     path = Path {};
     bool ret_val = true;
+    //click_chatter(String("Packet length", packet + ntohs(header->length)).c_str());
     while((const unsigned char*) object < packet + ntohs(header->length)) {
 
         // check for valid C-type
@@ -29,7 +30,6 @@ bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) 
         }
         // We want to handle on the type of object gets trough
         switch (object->class_num) {
-
             case RSVPObject::Null:
                 break;
 
