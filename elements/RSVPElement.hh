@@ -227,7 +227,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_path(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
-                                  const RSVPSenderTSpec& t_spec);
+            const RSVPSenderTSpec& t_spec);
 
     /**
      * Helper function that creates a new RESV function
@@ -237,7 +237,7 @@ protected:
      * @return
      */
     WritablePacket* generate_resv(const SessionID& session_id, const SenderID& sender_id, uint32_t R,
-                                  const RSVPSenderTSpec& t_spec, in_addr hop_addr, bool confirm);
+            const RSVPSenderTSpec& t_spec, bool confirm);
 
     /**
      * Helper function that creates a new PATH_ERR packet
@@ -245,8 +245,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_path_err(const SessionID& session_id, const SenderID& sender_id,
-                                      const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode code,
-                                      uint16_t error_value);
+            const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode code, uint16_t error_value);
 
     /**
      * Helper function that creates a new RESV_ERR packet
@@ -254,9 +253,8 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_err(const SessionID& session_id, const SenderID& sender_id,
-                                      const RSVPSenderTSpec& t_spec,
-                                      RSVPErrorSpec::ErrorCode = RSVPErrorSpec::ErrorCode::Confirmation,
-                                      uint16_t error_value = 0);
+            const RSVPSenderTSpec& t_spec, RSVPErrorSpec::ErrorCode = RSVPErrorSpec::ErrorCode::Confirmation,
+            uint16_t error_value = 0);
 
     /**
      * Helper function that creates a new PATH_TEAR message
@@ -264,7 +262,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_path_tear(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec, in_addr hop_address);
+            const RSVPSenderTSpec& t_spec, in_addr hop_address);
 
     /**
      * Helper function that creates a new RESV_TEAR message
@@ -272,7 +270,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_tear(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec, in_addr hop_address);
+            const RSVPSenderTSpec& t_spec, in_addr hop_address);
 
     /**
      * Helper function that creates a new RESV_CONF message
@@ -280,7 +278,7 @@ protected:
      * @param sender_id: contains sender template data
      */
     WritablePacket* generate_resv_conf(const SessionID& session_id, const SenderID& sender_id,
-                                       const RSVPSenderTSpec& t_spec, const RSVPResvConfirm& resv_confirm);
+            const RSVPSenderTSpec& t_spec, const RSVPResvConfirm& resv_confirm);
 
     /**
      * Function that sets the source and destination address in the IPEncap element

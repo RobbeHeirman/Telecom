@@ -14,16 +14,14 @@ RSVPHost::RSVPHost() = default;
 
 RSVPHost::~RSVPHost() = default;
 
-int RSVPHost::configure(Vector<String>& , ErrorHandler *const ) {
+int RSVPHost::configure(Vector<String>& config, ErrorHandler *const errh) {
 
-//    // Parse the config vector
-//    int result {Args(config, this, errh)
-//            .complete()};
-//
-//    // Check whether the parse failed
-//    if (result < 0) {
-//        return -1;
-//    }
+    // Parse the config vector and check whether it succeeded
+    if (Args(config, this, errh)
+            .read_mp("IP", m_address_info)
+            .complete() < 0) {
+        return -1;
+    }
     return 0;
 }
 
@@ -71,43 +69,25 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*path.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+    Session& session {session_pair->value};
 
-    // Construct a SenderID object and check whether this is the first PATH message received from that sender
-    const uint64_t sender_key {SenderID::to_key(*path.sender.sender)};
-    auto sender_pair {session.receivers.find_pair(sender_key)};
+    // If this is the first PATH message, initialise the session
+    if (not session.send_data) {
+        // Create a new SenderID object and add it
+        session.sender = SenderID {path.sender.sender->src_addr, ntohs(path.sender.sender->src_port)};
 
-    // If this is the first PATH message; create, initialise and add a new state
-    if (not sender_pair) {
-        // Create the new state first and get the session and sender IDs with which it will be added
-        PathState receiver;
-        const SessionID session_id {SessionID::from_key(session_key)};
-        const SenderID sender_id {SenderID::from_key(sender_key)};
-
-        // Create new timers and initialise them (scheduling happens at the end of the function or in a handler)
-        receiver.send_data = new SendData {this, session_id, sender_id};
-        receiver.tear_data = new TearData {this, session_id, sender_id, false};
-
-        receiver.refresh_timer = new Timer {push_resv, receiver.send_data};
-        receiver.timeout_timer = new Timer {tear_state, receiver.tear_data};
-        receiver.timeout_timer->initialize(this);
+        // Create a new SendData object here, this signals that the session has already received PATH messages
+        session.send_data = new SendData {this, SessionID::from_key(session_key)};
 
         // Collect the PATH message's PolicyData and SenderTSpec objects and add them to the state
-        receiver.policy_data = Vector<RSVPPolicyData> {};
         for (auto iter {path.policy_data.begin()}; iter < path.policy_data.end(); ++iter) {
-            receiver.policy_data.push_back(**iter);     // iter is a pointer to a pointer
+            session.policy_data.push_back(**iter);     // iter is a pointer to a pointer
         }
-        receiver.t_spec = *(path.sender.tspec);
-
-        // And add the new state
-        session.receivers.insert(sender_key, receiver);
+        session.t_spec = *(path.sender.tspec);
     }
 
-    // (Re-)set the timeout timer of the state and set the prev_hop address
-    auto state = session.receivers.findp(sender_key);
-    if (check(not state->timeout_timer, "RSVPHost has local session with invalid timer")) return;
-    state->timeout_timer->reschedule_after_msec((K + 0.5) * 1.5 * path.time_values->refresh);
-    state->prev_hop = path.hop->address;
+    // Set the prev_hop address
+    session.prev_hop = path.hop->address;   // TODO correct?
 }
 
 void RSVPHost::parse_resv(const unsigned char *const packet) {
@@ -120,26 +100,31 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*resv.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+    Session& session {session_pair->value};
 
     // Check whether there are senders registered for the session that match the RESV message's flow descriptors
     for (auto flow {resv.flow_descriptor_list.begin()}; flow < resv.flow_descriptor_list.end(); ++flow) {
-        const uint64_t sender_key {SenderID::to_key(*flow->filter_spec)};
 
-        auto sender_pair {session.senders.find_pair(sender_key)};
-        if (check(not sender_pair,
-                "RSVPHost received RESV message with a flow descriptor that doesn't match any sender")) return;
-        PathState& state {sender_pair->value};
+        // Check whether the flow's FilterSpec object matches the local session's sender
+        const uint64_t sender_key {SenderID::to_key(*flow->filter_spec)};
+        if (check(sender_key != session.sender.to_key(),
+                "RSVPHost received RESV message with a flow descriptor that doesn't match the sender")) return;
 
         // Set the hop address of this state
-        state.prev_hop = resv.hop->address;
+        session.prev_hop = resv.hop->address;
 
         // Check whether a RESV_CONF message is requested, if so generate and send it
-        if (resv.resv_confirm) {
-            auto packet {generate_resv_conf(SessionID::from_key(session_key), SenderID::from_key(sender_key),
-                                            state.t_spec, *resv.resv_confirm)};
-            ipencap(packet, resv.session->dest_addr, resv.hop->address);
+        if (not resv.resv_confirm) {
+            session.send_data->confirmed = true;
+        }
+        else if (not session.send_data->confirmed) {
+            auto packet {generate_resv_conf(SessionID::from_key(session_key), session.sender, session.t_spec,
+                                            *resv.resv_confirm)};
+            ipencap(packet, m_address_info.in_addr(), resv.hop->address);
             output(0).push(packet);
+
+            // Set the confirmed bool to true so that only one RESV_CONF message is sent
+            session.send_data->confirmed = true;
         }
     };
 }
@@ -154,13 +139,12 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*path_err.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH_ERR message that doesn't seem to belong here")) return;
-    SessionStates & session {session_pair->value};
+    Session & session {session_pair->value};
 
-    // Check whether the message's sender template matches any of the host's senders
+    // Check whether the message's sender template matches the host's sender
     const uint64_t sender_key {SenderID::to_key(*path_err.sender.sender)};
-    auto sender_pair {session.senders.find_pair(sender_key)};
-    if (check(not sender_pair,
-            "RSVPHost received PATH_ERR message with a SenderTemplate object that doesn't match any sender")) return;
+    if (check(sender_key != session.sender.to_key(),
+            "RSVPHost received PATH_ERR message with a SenderTemplate object that doesn't match")) return;
 
     // Initialise these variables here as it can't be done inside the switch statement
     const auto err_value {ntohs(path_err.error_spec->err_value)};
@@ -225,12 +209,11 @@ void RSVPHost::parse_resv_err(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*resv_err.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV_ERR message that doesn't seem to belong here")) return;
-    SessionStates & session {session_pair->value};
+    Session & session {session_pair->value};
 
     // Check whether the message's sender template matches any of the host's senders
     const uint64_t sender_key {SenderID::to_key(*resv_err.flow_descriptor.filter_spec)};
-    auto sender_pair {session.receivers.find_pair(sender_key)};
-    if (check(not sender_pair,
+    if (check(sender_key != session.sender.to_key(),
               "RSVPHost received RESV_ERR message with a SenderTemplate object that doesn't match any sender")) return;
 
     // Initialise these variables here as it can't be done inside the switch statement
@@ -302,17 +285,14 @@ void RSVPHost::parse_path_tear(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*path_tear.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received PATH_TEAR message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+    Session& session {session_pair->value};
 
     // Check whether there is a receiver registered that matches the PATH_TEAR message's SenderTemplate object
     const uint64_t sender_key {SenderID::to_key(*path_tear.sender_template)};
-    auto sender_pair {session.receivers.find_pair(sender_key)};
-    if (check(not sender_pair,
+    if (check(sender_key != session.sender.to_key(),
             "RSVPHost received PATH_TEAR message for a receiver that is not registered to the session")) return;
 
-    // Remove the receiver and its timers; don't trigger the timeout timer as it would send a RESV_TEAR message
-    clear_state(sender_pair->value);
-    session.receivers.erase(sender_key);
+    // TODO check whether anything needs to be done
 };
 
 void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
@@ -325,18 +305,15 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*resv_tear.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV_TEAR message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+    Session& session {session_pair->value};
 
-    // Check whether there are sernders registered that match the RESV_TEAR message's flow descriptors
+    // Check whether any of the RESV_TEAR message's flow descriptors match the session's sender
     for (auto flow {resv_tear.flow_descriptor_list.begin()}; flow != resv_tear.flow_descriptor_list.end(); ++flow) {
         const uint64_t sender_key {SenderID::to_key(**flow)};
-        auto sender_pair {session.senders.find_pair(sender_key)};
-        if (check(not sender_pair,
+        if (check(sender_key != session.sender.to_key(),
                 "RSVPHost received RESV_TEAR message for a sender that is not registered to the session")) return;
 
-        // Remove the sender and its timers; don't trigger the timeout timer as it would send a PATH_TEAR message
-        clear_state(sender_pair->value);
-        session.senders.erase(sender_key);
+        // TODO check whether anything needs to be done
     };
 }
 
@@ -350,17 +327,17 @@ void RSVPHost::parse_resv_conf(const unsigned char *const packet) {
     const uint64_t session_key {SessionID::to_key(*resv_conf.session)};
     auto session_pair {m_sessions.find_pair(session_key)};
     if (check(not session_pair, "RSVPHost received RESV_CONF message that doesn't seem to belong here")) return;
-    SessionStates& session {session_pair->value};
+    Session& session {session_pair->value};
 
     // Check whether there are receivers registered that match any of the RESV_CONF message's flow descriptors
     for (auto flow {resv_conf.flow_descriptor_list.begin()}; flow != resv_conf.flow_descriptor_list.end(); ++flow) {
         const uint64_t sender_key {SenderID::to_key(*flow->filter_spec)};
-        auto sender_pair {session.receivers.find_pair(sender_key)};
-        if (check(not sender_pair,
-                "RSVPHost received RESV_CONF message for a receiver that is not registerd to the session")) return;
+
+        if (check(sender_key != session.sender.to_key(),
+                "RSVPHost received RESV_CONF message for a receiver that is not registered to the session")) return;
 
         // Mark the receiver as confirmed so outgoing RESV messages won't be requesting RESV_CONF messages anymore
-        sender_pair->value.confirmed = true;
+        session.send_data->confirmed = true;
     };
 }
 
@@ -404,7 +381,7 @@ int RSVPHost::session(const String& config, Element *const element, void *const,
     }
 
     // Create a new session and add it to m_sessions
-    SessionStates session {StateMap {}, StateMap {}};
+    Session session {};
     host->m_sessions.insert(id.to_key(), session);
     host->m_session_ids.insert(session_id, id.to_key());
 
@@ -444,39 +421,36 @@ int RSVPHost::sender(const String& config, Element *const element, void *const, 
         return errh->error("Session with ID %d doesn't exist", id);
     }
     const SessionID session_id {SessionID::from_key(pair->value)};
-    SessionStates& session {host->m_sessions.find_pair(pair->value)->value};
+    Session& session {host->m_sessions.find_pair(pair->value)->value};
 
-    // Create a new sender ID and check whether there already is one like it in the session's senders
-    const SenderID sender_id {source_address, source_port};
-    if (session.senders.find_pair(sender_id.to_key())) {
-        return errh->warning("Sender with this source address and port already exists");
+    // Create a new sender and set/replace the session's sender
+    session.sender = SenderID {source_address, source_port};
+
+    // Check whether this is the first sender for the session
+    if (not session.refresh_timer) {
+        // Indicate this session as a sender
+        session.is_sender = true;
+
+        // Add the reservation's SenderTSpec object
+        auto temp {(unsigned char *) &(session.t_spec)};
+        RSVPSenderTSpec::write(temp, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
+
+        // Create a new timer and initialise it
+        session.send_data = new SendData {host, session_id};
+        session.refresh_timer = new Timer {push_path, session.send_data};
+        session.refresh_timer->initialize(host);
     }
 
-    // Create a new sender object
-    PathState sender;
-    sender.policy_data = Vector<RSVPPolicyData> {};
+    // Check whether the destination has the same address as this host, if so don't send PATH messages
+    if (session_id.destination_address == host->m_address_info.in_addr()) {
+        errh->warning("Registered sender to session %d with as destination address this host", id);
+        return 0;
+    }
 
-    // Prepare the data for the new sender's timers
-    sender.send_data = new SendData {host, session_id, sender_id};
-    sender.tear_data = new TearData {host, session_id, sender_id, true};
+    // Scheduling refresh_timer now will trigger push_path which will send a PATH message
+    session.refresh_timer->schedule_now();
 
-    // Create, initialise and add new timers for/to the sender
-    sender.refresh_timer = new Timer {push_path, sender.send_data};
-    sender.refresh_timer->initialize(host);
-    sender.refresh_timer->schedule_now();
-    sender.timeout_timer = new Timer {tear_state, sender.tear_data};
-    sender.timeout_timer->initialize(host);
-    sender.timeout_timer->schedule_after_msec((K + 0.5) * 1.5 * R);
-
-    // Create a new SenderTSpec object and add it as well
-    sender.t_spec = RSVPSenderTSpec {};
-    auto temp {(unsigned char*) &(sender.t_spec)};
-    RSVPSenderTSpec::write(temp, s_bucket_rate, s_bucket_size, s_peak_rate, s_min_unit, s_max_size);
-
-    // Once initialised add the sender to the session and immediately send a PATH message
-    session.senders.insert(sender_id.to_key(), sender);
-
-    errh->message("Defined session %d sender %u", id, sender_id.to_key());
+    errh->message("Defined session %d sender %u", id, session.sender.to_key());
     return 0;
 }
 
@@ -510,23 +484,23 @@ int RSVPHost::reserve(const String& config, Element *const element, void *const,
         return errh->error("Session with ID %d doesn't exist", id);
     }
     const auto session_id {pair->value};
-    SessionStates& session {host->m_sessions.find_pair(session_id)->value};
+    Session& session {host->m_sessions.find_pair(session_id)->value};
 
-    // Check whether the session has already received a PATH message (there is a State object in the receivers map)
-    if (session.receivers.empty()) {
+    // Check whether the session has already received a PATH message (send_data exists)
+    if (not session.send_data) {
         return errh->error("RSVPHost hasn't received any PATH messages for session %d yet", id);
     }
 
-    // Start sending RESV messages to all senders that have already sent PATH messages
-    for (auto iter {session.receivers.begin()}; iter != session.receivers.end(); ++iter) {
-        PathState receiver {iter.value()};
-
-        // Initialise a new timer if the receiver hasn't sent any RESV messages yet
-        if (not receiver.refresh_timer->initialized()) {
-            receiver.refresh_timer->initialize(host);
-            receiver.refresh_timer->schedule_now();
-        };
+    // Check whether this is the first call to this handler for this session (refresh_timer exists)
+    if (not session.refresh_timer) {
+        // Create a new timer, initialize it and let push_resv schedule it after sending a RESV message
+        session.refresh_timer = new Timer {push_resv, session.send_data};
+        session.refresh_timer->initialize(host);
     }
+
+    // (Re-)Start sending RESV message, update send_data->confirmed if necessary
+    session.send_data->confirmed = not conf;
+    session.refresh_timer->schedule_now();
 
     errh->message("Reservation confirmed for session %d", id);
     return 0;
@@ -559,19 +533,35 @@ int RSVPHost::release(const String& config, Element *const element, void *const,
     if (not session_pair) {
         return errh->error("Session with ID %d doesn't exist", id);
     }
-    SessionStates& session {host->m_sessions.find_pair(session_pair->value)->value};
+    const SessionID session_id {SessionID::from_key(session_pair->value)};
+    Session& session {host->m_sessions.find_pair(session_pair->value)->value};
 
-    // Release all senders/receivers by calling the tear_state function, which will also clean up the timers
-    for (auto state {session.senders.begin()}; state != session.senders.end(); ++state) {
-        tear_state(state.value().timeout_timer, state.value().tear_data);
+    // Send an RSVP message to notify other nodes
+    if (session.is_sender) {
+        const auto packet {host->generate_path_tear(session_id, session.sender, session.t_spec,
+                                                    host->m_address_info.in_addr())};
+        host->ipencap(packet, session.sender.source_address, session_id.destination_address);
+        host->output(0).push(packet);
     }
-    for (auto state {session.receivers.begin()}; state != session.receivers.end(); ++state) {
-        tear_state(state.value().timeout_timer, state.value().tear_data);
+    else {
+        const auto packet {host->generate_resv_tear(session_id, session.sender, session.t_spec,
+                                                    host->m_address_info.in_addr())};
+        host->ipencap(packet, session_id.destination_address, session.prev_hop);
+        host->output(0).push(packet);
     }
 
-    // Remove the SessionState object from m_sessions and m_session_ids
+    // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
     host->m_sessions.erase(session_pair->value);
     host->m_session_ids.erase(id);
+
+    // Delete the timer and its data if they were initialised
+    if (session.refresh_timer) {
+        session.refresh_timer->unschedule();
+        delete session.refresh_timer;
+    }
+    if (session.send_data) {
+        delete session.send_data;
+    }
 
     errh->message("Released reservation for session %d", id);
     return 0;
@@ -585,20 +575,6 @@ void RSVPHost::add_handlers() {
     add_write_handler("release", release, 0);
 }
 
-void RSVPHost::clear_state(PathState& state) {
-
-    if (state.timeout_timer) {
-        state.timeout_timer->unschedule();
-        delete state.timeout_timer;
-        delete state.send_data;
-    }
-    if (state.refresh_timer) {
-        state.refresh_timer->unschedule();
-        delete state.refresh_timer;
-        delete state.tear_data;
-    }
-}
-
 void RSVPHost::push_path(Timer *const timer, void *const user_data) {
 
     // Check whether user_data contains valid data
@@ -609,17 +585,14 @@ void RSVPHost::push_path(Timer *const timer, void *const user_data) {
     // Make sure the given session ID is valid
     const auto session_pair {data->host->m_sessions.find_pair(data->session_id.to_key())};
     if (check(not session_pair, "PATH message can't be sent; invalid session ID received")) return;
-
-    // Make sure the given sender ID is valid
-    const auto sender_pair {session_pair->value.senders.find_pair(data->sender_id.to_key())};
-    if (check(not sender_pair, "PATH message can't be sent; invalid sender ID received")) return;
+    const Session session {session_pair->value};
 
     // Generate a new PATH message and push it
-    const auto packet {data->host->generate_path(data->session_id, data->sender_id, R, sender_pair->value.t_spec)};
-    data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
+    const auto packet {data->host->generate_path(data->session_id, session.sender, R, session.t_spec)};
+    data->host->ipencap(packet, session.sender.source_address, data->session_id.destination_address);
     data->host->output(0).push(packet);
 
-    // Set the timer again
+    // Set the timer again (a refresh randomly in the interval [0.5R, 1.5R] is recommended in RFC 2205)
     const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
     timer->reschedule_after_msec(refresh);
 }
@@ -634,63 +607,18 @@ void RSVPHost::push_resv(Timer *const timer, void *const user_data) {
     // Make sure the given session ID is valid
     const auto session_pair {data->host->m_sessions.find_pair(data->session_id.to_key())};
     if (check(not session_pair, "RESV message can't be sent; invalid session ID received")) return;
-    const SessionStates session {session_pair->value};
-
-    // Make sure the given sender ID is valid
-    const auto sender_pair {session.receivers.find_pair(data->sender_id.to_key())};
-    if (check(not sender_pair, "RESV message can't be sent; invalid sender ID received")) return;
-    const PathState& state {sender_pair->value};
+    const Session session {session_pair->value};
 
     // Generate a new RESV message and push it
-    const auto packet {data->host->generate_resv(data->session_id, data->sender_id, R, state.t_spec,
-                                                 data->session_id.destination_address, not state.confirmed)};
+    const auto packet {data->host->generate_resv(data->session_id, session.sender, R, session.t_spec,
+                                                 not data->confirmed)};
     // The hop address can be the destination address as this is the only host to send RESV messages
-    data->host->ipencap(packet, data->session_id.destination_address, sender_pair->value.prev_hop);
+    data->host->ipencap(packet, data->session_id.destination_address, session.prev_hop);
     data->host->output(0).push(packet);
 
-    // Set the timer again and make sure only the first message contains a ResvConf object
+    // Set the timer again
     const uint32_t refresh {click_random(0.5 * R, 1.5 * R)};
     timer->reschedule_after_msec(refresh);
-}
-
-void RSVPHost::tear_state(Timer *const, void *const user_data) {
-
-    // Check whether user_data contains valid data
-    const auto data {(TearData*) user_data};
-    if (check(not data, "State can't be released; no timer data received")) return;
-    if (check(not data->host, "State can't be released; no host received")) return;
-
-    auto session_pair {data->host->m_sessions.find_pair(data->session_id.to_key())};
-    if (check(not session_pair, "State can't be released; invalid session ID received")) return;
-    SessionStates& session {session_pair->value};
-    PathState* to_delete {nullptr};
-
-    // Find the state in the senders/receivers map depending on whether the host was the sender/receiver
-    if (data->sender) {
-        auto state_pair {session.senders.find_pair(data->sender_id.to_key())};
-        if (check(not state_pair, "State can't be released; invalid sender ID received")) return;
-        to_delete = &(state_pair->value);
-        session.senders.erase(data->sender_id.to_key());
-
-        auto packet {data->host->generate_path_tear(data->session_id, data->sender_id, to_delete->t_spec,
-                                                    data->sender_id.source_address)};
-        data->host->ipencap(packet, data->sender_id.source_address, data->session_id.destination_address);
-        data->host->output(0).push(packet);
-
-    } else {
-        auto state_pair {session.receivers.find_pair(data->sender_id.to_key())};
-        if (check(not state_pair, "State can't be released; invalid sender ID received")) return;
-        to_delete = &(state_pair->value);
-        session.receivers.erase(data->sender_id.to_key());
-
-        auto packet {data->host->generate_resv_tear(data->session_id, data->sender_id, to_delete->t_spec,
-                                                    data->session_id.destination_address)};
-        data->host->ipencap(packet, data->session_id.destination_address, state_pair->value.prev_hop);
-        data->host->output(0).push(packet);
-    }
-
-    // Delete both timers and the data
-    clear_state(*to_delete);
 }
 
 
