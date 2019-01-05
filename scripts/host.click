@@ -7,7 +7,7 @@ elementclass Host {
 
 	// Shared IP input path
 	ip :: Strip(14)
-		-> CheckIPHeader
+		-> rsvp_out :: CheckIPHeader
 		-> rt :: StaticIPLookup(
 			$address:ip/32 0,
 			$address:ipnet 1,
@@ -32,8 +32,8 @@ elementclass Host {
 		-> output;
 
 	// incoming packets
-	input	-> hef :: HostEtherFilter($address)
-		-> in_cl :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800)
+	input	-> HostEtherFilter($address)
+		-> in_cl :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800 23/2E, 12/0800)
 		-> arp_res :: ARPResponder($address)
 		-> output;
 
@@ -41,11 +41,11 @@ elementclass Host {
 		-> [1]arpq;
 
 	in_cl[2]
+		-> Strip(14)
+		-> rsvpHost :: RSVPHost($address)
+		-> rsvp_out;
+
+	in_cl[3]
 		-> ip;
 
-	ipencap :: IPEncap(46, $address:ip, 0.0.0.0);
-	rsvpHost :: RSVPHost(ipencap)
-		-> ipencap
-		-> EtherEncap(0x0800, $address:eth, $address:eth)
-		-> hef;
 }
