@@ -39,19 +39,19 @@ void RSVPHost::push(int, Packet *const packet) {
     // React based on the message type in the header
     switch (header->msg_type) {
         case RSVPHeader::Path:
-            return parse_path((unsigned char*) header);
+            return handle_path((unsigned char*) header);
         case RSVPHeader::Resv:
-            return parse_resv((unsigned char*) header);
+            return handle_resv((unsigned char*) header);
         case RSVPHeader::PathErr:
-            return parse_path_err((unsigned char*) header);
+            return handle_path_err((unsigned char*) header);
         case RSVPHeader::ResvErr:
-            return parse_resv_err((unsigned char*) header);
+            return handle_resv_err((unsigned char*) header);
         case RSVPHeader::PathTear:
-            return parse_path_tear((unsigned char*) header);
+            return handle_path_tear((unsigned char*) header);
         case RSVPHeader::ResvTear:
-            return parse_resv_tear((unsigned char*) header);
+            return handle_resv_tear((unsigned char*) header);
         case RSVPHeader::ResvConf:
-            return parse_resv_conf((unsigned char*) header);
+            return handle_resv_conf((unsigned char*) header);
         default:
             ErrorHandler::default_handler()->error("RSVPHost received packet with an invalid message type");
     }
@@ -59,7 +59,7 @@ void RSVPHost::push(int, Packet *const packet) {
     packet->kill();
 }
 
-void RSVPHost::parse_path(const unsigned char *const packet) {
+void RSVPHost::handle_path(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Path path {};
@@ -90,7 +90,7 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
     session.prev_hop = path.hop->address;   // TODO correct?
 }
 
-void RSVPHost::parse_resv(const unsigned char *const packet) {
+void RSVPHost::handle_resv(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Resv resv {};
@@ -122,14 +122,11 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
                                             *resv.resv_confirm)};
             ipencap(packet, m_address_info.in_addr(), resv.hop->address);
             output(0).push(packet);
-
-            // Set the confirmed bool to true so that only one RESV_CONF message is sent
-            session.send_data->confirmed = true;
         }
     };
 }
 
-void RSVPHost::parse_path_err(const unsigned char *const packet) {
+void RSVPHost::handle_path_err(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     PathErr path_err {};
@@ -199,7 +196,7 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
     click_chatter(err_cause.c_str());
 }
 
-void RSVPHost::parse_resv_err(const unsigned char *const packet) {
+void RSVPHost::handle_resv_err(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     ResvErr resv_err {};
@@ -275,7 +272,7 @@ void RSVPHost::parse_resv_err(const unsigned char *const packet) {
     click_chatter(err_cause.c_str());
 }
 
-void RSVPHost::parse_path_tear(const unsigned char *const packet) {
+void RSVPHost::handle_path_tear(const unsigned char *const packet) {
 
     // Get all the objects we need from the packet
     PathTear path_tear {};
@@ -301,7 +298,7 @@ void RSVPHost::parse_path_tear(const unsigned char *const packet) {
     m_sessions.erase(session_key);
 };
 
-void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
+void RSVPHost::handle_resv_tear(const unsigned char *const packet) {
 
     // Get all the objects we need from the packet
     ResvTear resv_tear {};
@@ -324,7 +321,7 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
     };
 }
 
-void RSVPHost::parse_resv_conf(const unsigned char *const packet) {
+void RSVPHost::handle_resv_conf(const unsigned char *const packet) {
 
     // Get all the object we need from the packet
     ResvConf resv_conf {};
