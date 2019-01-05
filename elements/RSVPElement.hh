@@ -300,8 +300,8 @@ protected:
      * Functions that converts a session & sender object package to a uint64 So we can use this as a key for session
      * bookkeeping.
      */
-    uint64_t session_to_key(RSVPSession* session);
-    uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
+    //uint64_t session_to_key(RSVPSession* session);
+    //uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
 
 
     struct PathCallbackData {

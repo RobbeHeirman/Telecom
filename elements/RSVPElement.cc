@@ -822,7 +822,7 @@ void RSVPElement::ipencap(Packet *const packet, const in_addr& source, const in_
     ip_header->ip_sum = click_in_cksum((unsigned char*) packet->data(), size);
 }
 
-uint64_t RSVPElement::session_to_key(RSVPSession *const session) {
+/*uint64_t RSVPElement::session_to_key(RSVPSession *const session) {
 
     uint32_t ip_addr = (uint32_t) session->dest_addr.s_addr;
     uint8_t proto = session->proto;
@@ -843,7 +843,7 @@ uint64_t RSVPElement::sender_template_to_key(RSVPSenderTemplate *const sender_te
     uint32_t temp_step1 = ((uint32_t)unused << 16) | src_port;
     return uint64_t ((uint64_t) ip_addr << 32) | temp_step1;
 }
-
+*/
 
 CLICK_ENDDECLS
 EXPORT_ELEMENT(RSVPElement)

@@ -67,6 +67,9 @@ private:
     struct ReserveState {
 
         ~ReserveState(){
+
+        }
+        void inline free_heap(){
             delete refresh_timer;
             delete timeout_timer;
             delete call_back_data;
@@ -126,9 +129,6 @@ private:
     void time_out_path_state(uint64_t sender, uint64_t session, Timer* t);
     void refresh_reserve_state(uint64_t sender, uint64_t session, Timer* t);
     void time_out_reserve_state(uint64_t sender, uint64_t session, Timer* t);
-
-    //Some packet generation
-    WritablePacket* generate_resv(ReserveState& r_state);
 
 private:
     Vector<IPAddress> m_interfaces;
