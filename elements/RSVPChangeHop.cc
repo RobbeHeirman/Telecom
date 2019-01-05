@@ -18,9 +18,10 @@ int RSVPChangeHop::configure(Vector<String>& config, ErrorHandler* errh){
 void RSVPChangeHop::push(int port, Packet* p){
     const auto ip_header = (click_ip*) p->data();
     const auto header {(RSVPHeader*) (p->data() + 4 * ip_header->ip_hl)};
-    if(header->msg_type == RSVPHeader::Type::Path or header->msg_type == RSVPHeader::Type::Resv){
+    RSVPHop* hop = this->find_hop(p);
+
+    if(hop != nullptr){
         click_chatter("Changing Hop value to %s ", m_address_info.unparse().c_str());
-        RSVPHop* hop = this->find_hop(p);
         hop->address = this->m_address_info;
         header->checksum = 0;
         header->checksum = click_in_cksum(p->data(),p->length());
@@ -77,8 +78,8 @@ RSVPHop* RSVPChangeHop::find_hop(Packet* p){
                 break;
             }
             default:
-                click_chatter("SHOULDN't HAPPEN!");
-                click_chatter(String("Faulty Number is: ", object->Integrity).c_str());
+                //click_chatter("SHOULDN't HAPPEN!");
+                //click_chatter("Faulty Number is %s: ", String(object->class_num).c_str());
                 object = (RSVPObject*) (object + 1);
                 break;
         }

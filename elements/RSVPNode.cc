@@ -188,7 +188,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
         // Time values
         state.R = this->calculate_refresh(RSVPElement::R);
-        state.L = this->calculate_L(path.time_values->refresh);
+        state.L = this->calculate_L(state.R);
         path.time_values->refresh = state.R;
 
         //Timing the whole thing.
@@ -668,7 +668,7 @@ void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Tim
 
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state->R);
-        click_chatter("=================================================================================================");
+        click_chatter("=====================================================================================================");
     }
 }
 
@@ -681,6 +681,10 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
         // Checks if this state is up to timeout, this means it did not receive a path_message yet
         if(state.is_timeout){
             click_chatter("PathState of Session %s timed out",String(session_key).c_str());
+            WritablePacket* p = generate_path_tear(SessionID::from_key(session_key), SenderID::from_key(sender_key),state.t_spec, m_interfaces[0]);
+            this->ipencap(p, m_interfaces[0], state.sender_template.src_addr);
+            output(0).push(p);
+
             this->delete_state(sender_key, session_key);
         }
         else{
@@ -690,6 +694,7 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
             t->reschedule_after_msec(state.L);
         }
     }
+    click_chatter("========================================================================================================");
 }
 
 void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
@@ -713,7 +718,7 @@ void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, 
         output(0).push(p);
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state.R);
-        click_chatter("=================================================================================================");
+        click_chatter("=====================================================================================================");
     }
 }
 
