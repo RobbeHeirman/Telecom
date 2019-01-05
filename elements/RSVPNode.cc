@@ -137,7 +137,7 @@ void RSVPNode::push(int port, Packet* p){
     else{
         click_chatter("Couldnt't recognize message type %s", String(header->msg_type).c_str());
     }
-    //output(port).push(p);
+    click_chatter("=====================================================================================================");
 }
 
 void RSVPNode::handle_path_message(Packet *p, int port) {
@@ -169,7 +169,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_session{SessionID::to_key(*path.session)};
     uint64_t byte_sender{SenderID::to_key(*path.sender.sender)};
 
-    click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str()); //TODO SEGFAULT
+    click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str());
 
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
@@ -188,7 +188,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
         // Time values
         state.R = this->calculate_refresh(RSVPElement::R);
-        state.L = this->calculate_L(path.time_values->refresh);
+        state.L = this->calculate_L(state.R);
         path.time_values->refresh = state.R;
 
         //Timing the whole thing.
@@ -221,7 +221,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
                 String(state.L).c_str());
     }
     else{
-        click_chatter("This is a refresh message...");
+        click_chatter("This is a Path refresh message...");
         PathState& state = m_path_state[byte_sender][byte_session];
 
         state.sender_template = *(path.sender.sender);
@@ -233,7 +233,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
 
         state.R = this->calculate_refresh(RSVPElement::R);
-        state.L = this->calculate_L(path.time_values->refresh);
+        state.L = this->calculate_L(state.R);
         path.time_values->refresh = state.R;
         state.is_timeout = false;
         click_chatter("Values = Previous Hop: %s, Refresh Timer: %s ms, Time to live: %s ms",
@@ -256,10 +256,12 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     find_resv_ptrs((unsigned char*) header, resv);
 
     // We look for the corresponding session in our PathState Table.
-    uint64_t session_key = session_to_key(resv.session);
+    uint64_t session_key = SessionID::to_key(*resv.session);
 
+    click_chatter("Receiving reserve message from Session %s: ", String(session_key).c_str());
     if(resv.style->sharing == 0b01 && resv.style->s_selection == 0b010) { //TODO: maybe we need to map those styles in an enum aswell
         // We loop over all flowDescriptors
+        click_chatter("FF reserve style");
         for (auto i = 0; i < resv.flow_descriptor_list.size(); i++) {
 
             // Since this is FF style we look for the sender corresponding with the filterspec
@@ -267,6 +269,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
             if (m_path_state.find(address_key) != m_path_state.end()) {
                 // We need the corresponding pathState
                 if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()) {
+                    click_chatter("PathState is here resuming...");
                     // need PHop from pathstate to forward
                     PathState &state = m_path_state[address_key][session_key];
                     // We make a new reservation state
@@ -277,7 +280,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
                     // We don't have this reservation in our reservation map
                     if (!resv_ff_exists(address_key, session_key)) {
-
+                        click_chatter("Creating new Reservation state..");
                         // We add a new resv state here
                         ReserveState r_state;
 
@@ -291,8 +294,8 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.L = this->calculate_L(resv.time_values->refresh);
 
                         // Time values
-                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                        r_state.L = this->calculate_L(resv.time_values->refresh);
+                        r_state.R = this->calculate_refresh(RSVPElement::R);
+                        r_state.L = this->calculate_L(r_state.R);
 
                         // Create the callback data
                         ReserveCallbackData *rsv_callback = new ReserveCallbackData;
@@ -316,8 +319,15 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.call_back_data = rsv_callback;
 
                         m_ff_resv_states[address_key][session_key] = r_state;
+                        click_chatter("Succes! Values = Previous Hop: %s Next Hop: %s, Refresh Timer: %s ms, Time to live: %s ms",
+                                      String(r_state.prev_hop.unparse()).c_str(),
+                                      String(r_state.next_hop.unparse()).c_str(),
+                                      String(r_state.R).c_str(),
+                                      String(r_state.L).c_str());
 
                     } else {
+
+                        click_chatter("This is a Reserve refresh message...");
 
                         // We modify resv state here
                         ReserveState &r_state = m_ff_resv_states[address_key][session_key];
@@ -327,14 +337,17 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.next_hop = resv.hop->address;
                         r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
-                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                        r_state.L = this->calculate_L(resv.time_values->refresh);
+                        r_state.R = this->calculate_refresh(RSVPElement::R);
+                        r_state.L = this->calculate_L(r_state.R);
 
-                        // Time values
-                        r_state.R = this->calculate_refresh(resv.time_values->refresh);
-                        r_state.L = this->calculate_L(resv.time_values->refresh);
 
                         r_state.is_timeout = false;
+
+                        click_chatter("Values = Previous Hop: %s, Next Hop, Refresh Timer: %s ms, Time to live: %s ms",
+                                      String(r_state.prev_hop.unparse()).c_str(),
+                                      String(r_state.next_hop.unparse()).c_str(),
+                                      String(r_state.R).c_str(),
+                                      String(r_state.L).c_str());
 
                     }
                     //Signaling that the IPEncap with the correct src and dst addresses.
@@ -378,8 +391,8 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
     PathTear tear;
     find_path_tear_ptrs((unsigned char*) header, tear);
 
-    uint64_t sender_key = this->sender_template_to_key(tear.sender_template);
-    uint64_t session_key = this->session_to_key(tear.session);
+    uint64_t sender_key = SenderID::to_key(*tear.sender_template);
+    uint64_t session_key = SessionID::to_key(*tear.session);
     click_chatter("Receiving Path Tear message from %s", String(session_key).c_str());
 
     if(delete_state(sender_key, session_key, tear.hop->address)){
@@ -410,7 +423,7 @@ bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
         uint64_t address_key = SenderID::to_key(*resv_tear.flow_descriptor_list[i]);
         if(m_path_state.find(address_key) != m_path_state.end()) {
 
-            uint64_t session_key = session_to_key(resv_tear.session);
+            uint64_t session_key = SessionID::to_key(*resv_tear.session);
             if (m_path_state[address_key].find(session_key) != m_path_state[address_key].end()) {
 
                 // Now we found that pathstate we first make sure that we handle our IP addresses correctly.
@@ -499,15 +512,19 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
     const auto ip_header = (click_ip*) p->data();
     const auto header {(RSVPHeader*) (p->data() + 4 * ip_header->ip_hl)};
 
+
     ResvConf rsv_conf;
     find_resv_conf_ptrs((unsigned char*) header, rsv_conf);
 
     auto session_key{SessionID::to_key(*rsv_conf.session)};
+    click_chatter("Receiving Confirmation message from session %s", String(session_key).c_str());
     for(auto i = 0 ; i < rsv_conf.flow_descriptor_list.size() ;  i++){
         auto sender_key{SenderID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
         if(resv_ff_exists(sender_key, session_key)){
             ReserveState& state = m_ff_resv_states[sender_key][session_key];
             ipencap(p, m_interfaces[port], state.next_hop);
+            click_chatter("Forwarding confirmation");
+            click_chatter("Values: destination = %s", String(state.next_hop.unparse()).c_str());
             output(port).push(p);
         }
     }
@@ -646,16 +663,17 @@ void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Tim
                 state->t_spec
                 );
         click_chatter("Firing Path Refresh to %s: ", IPAddress(state->session.dest_addr).unparse().c_str());
-        this->ipencap(p, state->sender_template.src_addr, state->session.dest_addr);
+        this->ipencap(p, m_interfaces[0], state->session.dest_addr);
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state->R);
+        click_chatter("=====================================================================================================");
     }
 }
 
 void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Timer* t){
-
+    click_chatter("checking a timeout of %s", String(session_key).c_str());
     // we check if this state is still in our table
     if(this->path_state_exists(sender_key, session_key)){
         PathState& state = m_path_state[sender_key][session_key];
@@ -663,28 +681,44 @@ void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Ti
         // Checks if this state is up to timeout, this means it did not receive a path_message yet
         if(state.is_timeout){
             click_chatter("PathState of Session %s timed out",String(session_key).c_str());
+            WritablePacket* p = generate_path_tear(SessionID::from_key(session_key), SenderID::from_key(sender_key),state.t_spec, m_interfaces[0]);
+            this->ipencap(p, m_interfaces[0], state.sender_template.src_addr);
+            output(0).push(p);
+
             this->delete_state(sender_key, session_key);
         }
         else{
+            click_chatter("refreshed in time");
             // It was refreshed before timeout next timeout round the state will be destroyed.
             state.is_timeout = true;
             t->reschedule_after_msec(state.L);
         }
     }
+    click_chatter("========================================================================================================");
 }
 
 void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
-
-    if(this->resv_ff_exists(sender_key, session_key)){
+    click_chatter("Trying to fire a reserveState refresh message");
+    if(this->resv_ff_exists(sender_key, session_key) && this->path_state_exists(sender_key, session_key)){
 
         //Sending a refresh path message
         ReserveState& state = m_ff_resv_states[sender_key][session_key];
-        WritablePacket* p = this->generate_resv(state);
-        this->ipencap(p, state.filterSpec.src_addr, state.session.dest_addr);
-        output(0).push(p);
+        PathState& p_state = m_path_state[sender_key][session_key];
 
+        WritablePacket* p = this->generate_resv(
+                SessionID::from_key(session_key),
+                SenderID::from_key(sender_key),
+                state.R,
+                p_state.t_spec,
+                false // No need for confirmation on refresh messages
+                );
+
+        this->ipencap(p, m_interfaces[0], state.prev_hop);
+        click_chatter("Firing refresh message to %s", String(state.prev_hop.unparse()).c_str());
+        output(0).push(p);
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state.R);
+        click_chatter("=====================================================================================================");
     }
 }
 
@@ -706,35 +740,6 @@ void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key,
         }
     }
 
-}
-
-WritablePacket* RSVPNode::generate_resv(ReserveState& r_state ) {
-
-    // Create a new packet
-    const unsigned long size {sizeof(RSVPHeader)     + sizeof(RSVPSession)                    + sizeof(RSVPHop)
-                              + sizeof(RSVPTimeValues) + sizeof(RSVPStyle)
-                              + sizeof(RSVPFlowSpec)   + sizeof(RSVPFilterSpec)};
-    WritablePacket *const packet {Packet::make(s_headroom, nullptr, size, 0)};
-    if (not packet)
-        return nullptr;
-
-    // Set all bits in the new packet to 0
-    auto pos_ptr {packet->data()};
-    memset(pos_ptr, 0, size);
-
-    // The write functions return a pointer to the position right after the area they wrote to
-    RSVPHeader    ::write(pos_ptr, RSVPHeader::Resv);
-    RSVPSession   ::write(pos_ptr, r_state.session.dest_addr, r_state.session.proto, r_state.session.dest_port);
-    RSVPHop       ::write(pos_ptr, r_state.next_hop);
-    RSVPTimeValues::write(pos_ptr, r_state.R);
-
-    RSVPStyle     ::write(pos_ptr);
-    RSVPFlowSpec  ::write(pos_ptr, r_state.flowSpec.r, r_state.flowSpec.b, r_state.flowSpec.p, r_state.flowSpec.m, r_state.flowSpec.M);
-    RSVPFilterSpec::write(pos_ptr, r_state.filterSpec.src_addr, r_state.filterSpec.src_port);
-
-    // Complete the header by setting the size and checksum correctly
-    RSVPHeader    ::complete(packet, size);
-    return packet;
 }
 
 CLICK_ENDDECLS
