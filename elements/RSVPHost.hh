@@ -68,6 +68,8 @@ private:
     // The current sessions
     struct Session
     {
+        int id {0};
+
         IPAddress prev_hop {};
         Vector<RSVPPolicyData> policy_data {};
         RSVPSenderTSpec t_spec {};

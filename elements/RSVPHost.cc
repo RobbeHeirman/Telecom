@@ -292,7 +292,13 @@ void RSVPHost::parse_path_tear(const unsigned char *const packet) {
     if (check(sender_key != session.sender.to_key(),
             "RSVPHost received PATH_TEAR message for a receiver that is not registered to the session")) return;
 
-    // TODO check whether anything needs to be done
+    // Remove the session
+    session.refresh_timer->unschedule();
+    delete session.refresh_timer;
+    delete session.send_data;
+
+    m_session_ids.erase(session.id);
+    m_sessions.erase(session_key);
 };
 
 void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
@@ -313,7 +319,8 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
         if (check(sender_key != session.sender.to_key(),
                 "RSVPHost received RESV_TEAR message for a sender that is not registered to the session")) return;
 
-        // TODO check whether anything needs to be done
+        // RESV_TEAR messages don't affect senders
+        check(true, "RSVPHost received RESV_TEAR message");
     };
 }
 
@@ -382,6 +389,7 @@ int RSVPHost::session(const String& config, Element *const element, void *const,
 
     // Create a new session and add it to m_sessions
     Session session {};
+    session.id = session_id;
     host->m_sessions.insert(id.to_key(), session);
     host->m_session_ids.insert(session_id, id.to_key());
 
@@ -538,29 +546,36 @@ int RSVPHost::release(const String& config, Element *const element, void *const,
 
     // Send an RSVP message to notify other nodes
     if (session.is_sender) {
+        // Send a PATH_TEAR message to notify other RSVP nodes
         const auto packet {host->generate_path_tear(session_id, session.sender, session.t_spec,
                                                     host->m_address_info.in_addr())};
         host->ipencap(packet, session.sender.source_address, session_id.destination_address);
         host->output(0).push(packet);
+
+        // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
+        host->m_sessions.erase(session_pair->value);
+        host->m_session_ids.erase(id);
+
+        // Delete the timer and its data if they were initialised
+        if (session.refresh_timer) {
+            session.refresh_timer->unschedule();
+        }
     }
     else {
+        // Send a RESV_TEAR message to notify other RSVP nodes
         const auto packet {host->generate_resv_tear(session_id, session.sender, session.t_spec,
                                                     host->m_address_info.in_addr())};
         host->ipencap(packet, session_id.destination_address, session.prev_hop);
         host->output(0).push(packet);
-    }
 
-    // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
-    host->m_sessions.erase(session_pair->value);
-    host->m_session_ids.erase(id);
-
-    // Delete the timer and its data if they were initialised
-    if (session.refresh_timer) {
-        session.refresh_timer->unschedule();
-        delete session.refresh_timer;
-    }
-    if (session.send_data) {
-        delete session.send_data;
+        // Stop sending RESV messages, delete the timer and its data if initialised
+        if (session.refresh_timer) {
+            session.refresh_timer->unschedule();
+            delete session.refresh_timer;
+        }
+        if (session.send_data) {
+            delete session.send_data;
+        }
     }
 
     errh->message("Released reservation for session %d", id);
