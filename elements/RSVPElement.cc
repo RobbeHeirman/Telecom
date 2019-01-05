@@ -7,6 +7,100 @@
 CLICK_DECLS
 
 
+bool RSVPElement::validate_message(const Packet *const packet) {
+
+    // Check whether the IP header's version, header length, total length, protocol and checksum are valid
+    const auto ip {(click_ip*) packet->data()};
+    if (check(ip->ip_v != 4, "IP header has incorrect version (!= 4)")) return false;
+    if (check(ip->ip_hl < 5, "IP header has impossible header length (< 5)")) return false;
+    if (check(ntohs(ip->ip_len) != packet->length(), "IP header has incorrect total length value")) return false;
+    if (check(ip->ip_p != IP_PROTO_RSVP, "IP header has incorrect protocol (!= RSVP)")) return false;
+    if (check(click_in_cksum((unsigned char*) ip, 4 * ip->ip_hl), "IP header has incorrect checksum")) return false;
+
+    // Check whether the RSVP header is correct
+    const auto rsvp {(RSVPHeader*) (((unsigned char*) ip) + 4 * ip->ip_hl)};
+    if (check(rsvp->version != RSVPVersion, "RSVP header has incorrect version (!= 1)")) return false;
+    if (check(rsvp->msg_type > 7, "RSVP header has incorrect message type (> 7)")) return false;
+    if (check(rsvp->send_ttl < ip->ip_ttl, "RSVP header has impossible TTL (< IP TTL)")) return false;
+    if (check(ntohs(rsvp->length) % 4, "RSVP header has incorrect length value (% 4)")) return false;
+    if (check(click_in_cksum((unsigned char*) rsvp, ntohs(rsvp->length)), "RSVP header has incorrect checksum"))
+        return false;
+
+    // Iterate over each RSVP object and check their object headers
+    auto object {(RSVPObject*) (rsvp + 1)};
+    while ((unsigned char*) object < packet->end_data()) {
+
+        // Check whether the object header is correct
+        if (check(ntohs(ntohs(object->length)) < 4, "RSVP object has incorrect length value (< 4)")) return false;
+        if (check(ntohs(object->length) % 4 != 0, "RSVP object has incorrect length value (% 4)")) return false;
+        if (check(object->c_type > 2, "RSVP object has incorrect C-Type (> 2)")) return false;
+
+        // Perform more precise checks per object type (only on the header)
+        switch (object->class_num) {
+            case RSVPObject::Null:
+                break;
+            case RSVPObject::Session:
+                if (check(ntohs(object->length) != 12, "RSVP session has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP session has incorrect c-type")) return false;
+                break;
+            case RSVPObject::Hop:
+                if (check(ntohs(object->length) != 12, "RSVP hop has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP hop has incorrect c-type")) return false;
+                break;
+            case RSVPObject::Integrity:
+                if (check(object->c_type != 1, "RSVP integrity has incorrect c-type")) return false;
+                break;
+            case RSVPObject::TimeValues:
+                if (check(ntohs(object->length) != 8, "RSVP time values has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP time values has incorrect c-type")) return false;
+                break;
+            case RSVPObject::ErrorSpec:
+                if (check(ntohs(object->length) != 12, "RSVP error spec has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP error spec has incorrect c-type")) return false;
+                break;
+            case RSVPObject::Scope:
+                if (check(object->c_type != 1, "RSVP scope has incorrect c-type")) return false;
+                break;
+            case RSVPObject::Style:
+                if (check(ntohs(object->length) != 8, "RSVP style has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP style has incorrect c-type")) return false;
+                break;
+            case RSVPObject::FlowSpec:
+                if (check(ntohs(object->length) != 36, "RSVP flowspec has incorrect length")) return false;
+                if (check(object->c_type != 2, "RSVP flowspec has incorrect c-type")) return false;
+                break;
+            case RSVPObject::FilterSpec:
+                if (check(ntohs(object->length) != 12, "RSVP filterspec has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP filterspec has incorrect c-type")) return false;
+                break;
+            case RSVPObject::SenderTemplate:
+                if (check(ntohs(object->length) != 12, "RSVP sender template has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP sender template has incorrect c-type")) return false;
+                break;
+            case RSVPObject::SenderTSpec:
+                if (check(ntohs(object->length) != 36, "RSVP sender tspec has incorrect length")) return false;
+                if (check(object->c_type != 2, "RSVP sender tspec has incorrect c-type")) return false;
+                break;
+            case RSVPObject::PolicyData:
+                if (check(object->c_type != 1, "RSVP policy data has incorrect c-type")) return false;
+                break;
+            case RSVPObject::ResvConfirm:
+                if (check(ntohs(object->length) != 8, "RSVP resv confirm has incorrect length")) return false;
+                if (check(object->c_type != 1, "RSVP resv confirm has incorrect c-type")) return false;
+                break;
+            default:
+                check(true, "RSVP object has incorrect class number");
+                return false;
+        }
+
+        // Increase the object pointer by the length (in bytes) advertised in the current object's header
+        object = (RSVPObject*) (((uint8_t*) object) + ntohs(object->length));
+    }
+
+    // If all checks succeeded
+    return true;
+}
+
 bool RSVPElement::find_path_ptrs(const unsigned char *const packet, Path& path) {
 
     // Main object to iterate over our package objects

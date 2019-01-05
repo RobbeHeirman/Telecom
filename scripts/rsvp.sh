@@ -27,16 +27,12 @@ if [ $VM = false ]; then
 	ROUT1_PORT="10000";	ROUT1_NAME="router1"
 	ROUT2_PORT="10000";	ROUT2_NAME="router2"
 	HOST2_PORT="10000";	HOST2_NAME="host2"
-
-	echo TEST 2
 else
 	# Values as used in the reference implementation
 	HOST1_PORT="10001";	HOST1_NAME="host1/rsvpHost"
 	ROUT1_PORT="10002";	ROUT1_NAME="router1/rsvpRouter"
 	ROUT2_PORT="10003";	ROUT2_NAME="router2/rsvpRouter"
 	HOST2_PORT="10004";	HOST2_NAME="host2/rsvpHost"
-
-	echo TEST 1
 fi
 
 
