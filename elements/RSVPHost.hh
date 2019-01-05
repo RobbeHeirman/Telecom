@@ -33,13 +33,13 @@ public:
     void push(int, Packet*);
 
     // Packet parsers
-    void parse_path(const unsigned char* packet);
-    void parse_resv(const unsigned char* packet);
-    void parse_path_err(const unsigned char* packet);
-    void parse_resv_err(const unsigned char* packet);
-    void parse_path_tear(const unsigned char* packet);
-    void parse_resv_tear(const unsigned char* packet);
-    void parse_resv_conf(const unsigned char* packet);
+    void handle_path(const unsigned char* packet);
+    void handle_resv(const unsigned char* packet);
+    void handle_path_err(const unsigned char* packet);
+    void handle_resv_err(const unsigned char* packet);
+    void handle_path_tear(const unsigned char* packet);
+    void handle_resv_tear(const unsigned char* packet);
+    void handle_resv_conf(const unsigned char* packet);
 
     // Handler functions
     /// session ID <int>, DST <addr>, PORT <port>[, PROTO <uint8_t>]
@@ -68,6 +68,8 @@ private:
     // The current sessions
     struct Session
     {
+        int id {0};
+
         IPAddress prev_hop {};
         Vector<RSVPPolicyData> policy_data {};
         RSVPSenderTSpec t_spec {};

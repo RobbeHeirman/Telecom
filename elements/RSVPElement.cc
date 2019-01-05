@@ -314,11 +314,12 @@ bool RSVPElement::find_resv_err_ptrs(const unsigned char *const packet, ResvErr&
     if (check(object->class_num != RSVPObject::FlowSpec,
             "RESV_ERR message Style object isn't followed by a FlowSpec object")) return false;
     resv_err.flow_descriptor.flow_spec = (RSVPFlowSpec*) (object);
+    object = (RSVPObject*) (resv_err.flow_descriptor.flow_spec + 1);
 
     // Make sure the next object is a FilterSpec object
     if (check(object->class_num != RSVPObject::FilterSpec,
             "RESV_ERR message FlowSpec isn't followed by a FilterSpec object")) return false;
-    resv_err.flow_descriptor.filter_spec = (RSVPFilterSpec*) (resv_err.flow_descriptor.flow_spec + 1);
+    resv_err.flow_descriptor.filter_spec = (RSVPFilterSpec*) (object);
 
     // Make sure all mandatory objects were present in the message
     if (check(not resv_err.session, "RESV_ERR message is missing a Session object") or

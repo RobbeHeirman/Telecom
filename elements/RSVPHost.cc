@@ -39,19 +39,19 @@ void RSVPHost::push(int, Packet *const packet) {
     // React based on the message type in the header
     switch (header->msg_type) {
         case RSVPHeader::Path:
-            return parse_path((unsigned char*) header);
+            return handle_path((unsigned char*) header);
         case RSVPHeader::Resv:
-            return parse_resv((unsigned char*) header);
+            return handle_resv((unsigned char*) header);
         case RSVPHeader::PathErr:
-            return parse_path_err((unsigned char*) header);
+            return handle_path_err((unsigned char*) header);
         case RSVPHeader::ResvErr:
-            return parse_resv_err((unsigned char*) header);
+            return handle_resv_err((unsigned char*) header);
         case RSVPHeader::PathTear:
-            return parse_path_tear((unsigned char*) header);
+            return handle_path_tear((unsigned char*) header);
         case RSVPHeader::ResvTear:
-            return parse_resv_tear((unsigned char*) header);
+            return handle_resv_tear((unsigned char*) header);
         case RSVPHeader::ResvConf:
-            return parse_resv_conf((unsigned char*) header);
+            return handle_resv_conf((unsigned char*) header);
         default:
             ErrorHandler::default_handler()->error("RSVPHost received packet with an invalid message type");
     }
@@ -59,7 +59,7 @@ void RSVPHost::push(int, Packet *const packet) {
     packet->kill();
 }
 
-void RSVPHost::parse_path(const unsigned char *const packet) {
+void RSVPHost::handle_path(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Path path {};
@@ -90,7 +90,7 @@ void RSVPHost::parse_path(const unsigned char *const packet) {
     session.prev_hop = path.hop->address;   // TODO correct?
 }
 
-void RSVPHost::parse_resv(const unsigned char *const packet) {
+void RSVPHost::handle_resv(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     Resv resv {};
@@ -122,14 +122,11 @@ void RSVPHost::parse_resv(const unsigned char *const packet) {
                                             *resv.resv_confirm)};
             ipencap(packet, m_address_info.in_addr(), resv.hop->address);
             output(0).push(packet);
-
-            // Set the confirmed bool to true so that only one RESV_CONF message is sent
-            session.send_data->confirmed = true;
         }
     };
 }
 
-void RSVPHost::parse_path_err(const unsigned char *const packet) {
+void RSVPHost::handle_path_err(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     PathErr path_err {};
@@ -199,7 +196,7 @@ void RSVPHost::parse_path_err(const unsigned char *const packet) {
     click_chatter(err_cause.c_str());
 }
 
-void RSVPHost::parse_resv_err(const unsigned char *const packet) {
+void RSVPHost::handle_resv_err(const unsigned char *const packet) {
 
     // Get all the objects we need from the message
     ResvErr resv_err {};
@@ -263,6 +260,7 @@ void RSVPHost::parse_resv_err(const unsigned char *const packet) {
                     err_cause << "unknown/invalid sub-code " << err_value;
                     break;
             }
+            break;
 
         case RSVPErrorSpec::RSVPSystemError:
             err_cause << "RSVP system error with value " << err_value;
@@ -275,7 +273,7 @@ void RSVPHost::parse_resv_err(const unsigned char *const packet) {
     click_chatter(err_cause.c_str());
 }
 
-void RSVPHost::parse_path_tear(const unsigned char *const packet) {
+void RSVPHost::handle_path_tear(const unsigned char *const packet) {
 
     // Get all the objects we need from the packet
     PathTear path_tear {};
@@ -292,10 +290,16 @@ void RSVPHost::parse_path_tear(const unsigned char *const packet) {
     if (check(sender_key != session.sender.to_key(),
             "RSVPHost received PATH_TEAR message for a receiver that is not registered to the session")) return;
 
-    // TODO check whether anything needs to be done
+    // Remove the session
+    session.refresh_timer->unschedule();
+    delete session.refresh_timer;
+    delete session.send_data;
+
+    m_session_ids.erase(session.id);
+    m_sessions.erase(session_key);
 };
 
-void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
+void RSVPHost::handle_resv_tear(const unsigned char *const packet) {
 
     // Get all the objects we need from the packet
     ResvTear resv_tear {};
@@ -313,11 +317,12 @@ void RSVPHost::parse_resv_tear(const unsigned char *const packet) {
         if (check(sender_key != session.sender.to_key(),
                 "RSVPHost received RESV_TEAR message for a sender that is not registered to the session")) return;
 
-        // TODO check whether anything needs to be done
+        // RESV_TEAR messages don't affect senders
+        check(true, "RSVPHost received RESV_TEAR message");
     };
 }
 
-void RSVPHost::parse_resv_conf(const unsigned char *const packet) {
+void RSVPHost::handle_resv_conf(const unsigned char *const packet) {
 
     // Get all the object we need from the packet
     ResvConf resv_conf {};
@@ -382,6 +387,7 @@ int RSVPHost::session(const String& config, Element *const element, void *const,
 
     // Create a new session and add it to m_sessions
     Session session {};
+    session.id = session_id;
     host->m_sessions.insert(id.to_key(), session);
     host->m_session_ids.insert(session_id, id.to_key());
 
@@ -538,29 +544,36 @@ int RSVPHost::release(const String& config, Element *const element, void *const,
 
     // Send an RSVP message to notify other nodes
     if (session.is_sender) {
+        // Send a PATH_TEAR message to notify other RSVP nodes
         const auto packet {host->generate_path_tear(session_id, session.sender, session.t_spec,
                                                     host->m_address_info.in_addr())};
         host->ipencap(packet, session.sender.source_address, session_id.destination_address);
         host->output(0).push(packet);
+
+        // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
+        host->m_sessions.erase(session_pair->value);
+        host->m_session_ids.erase(id);
+
+        // Delete the timer and its data if they were initialised
+        if (session.refresh_timer) {
+            session.refresh_timer->unschedule();
+        }
     }
     else {
+        // Send a RESV_TEAR message to notify other RSVP nodes
         const auto packet {host->generate_resv_tear(session_id, session.sender, session.t_spec,
                                                     host->m_address_info.in_addr())};
         host->ipencap(packet, session_id.destination_address, session.prev_hop);
         host->output(0).push(packet);
-    }
 
-    // Remove the Session object from m_sessions and m_session_ids, and delete all its pointers
-    host->m_sessions.erase(session_pair->value);
-    host->m_session_ids.erase(id);
-
-    // Delete the timer and its data if they were initialised
-    if (session.refresh_timer) {
-        session.refresh_timer->unschedule();
-        delete session.refresh_timer;
-    }
-    if (session.send_data) {
-        delete session.send_data;
+        // Stop sending RESV messages, delete the timer and its data if initialised
+        if (session.refresh_timer) {
+            session.refresh_timer->unschedule();
+            delete session.refresh_timer;
+        }
+        if (session.send_data) {
+            delete session.send_data;
+        }
     }
 
     errh->message("Released reservation for session %d", id);
