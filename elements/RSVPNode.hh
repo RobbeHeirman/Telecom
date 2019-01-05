@@ -111,8 +111,8 @@ private:
     bool delete_ff_rsv_state(const uint64_t& sender_key, const uint64_t& session_key);
 
     //Calculate values
-    float calculate_refresh(float r);
-    float calculate_L(float r);
+    uint32_t calculate_refresh(uint32_t r);
+    uint32_t calculate_L(uint32_t r);
 
 
     // Timer Callback functions
@@ -128,7 +128,6 @@ private:
     void time_out_reserve_state(uint64_t sender, uint64_t session, Timer* t);
 
     //Some packet generation
-    WritablePacket* generate_path(PathState* state);
     WritablePacket* generate_resv(ReserveState& r_state);
 
 private:
@@ -136,7 +135,6 @@ private:
     typedef HashTable<uint64_t, HashTable <uint64_t, ReserveState>> FFReserveMap;
     FFReserveMap m_ff_resv_states;
     Vector<uint64_t> m_local_session_id; // Used for RELEASE handler calls
-    unsigned int K = 3; //Constant with default 3 (see RFC)
 };
 
 CLICK_ENDDECLS

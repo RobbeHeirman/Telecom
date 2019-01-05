@@ -16,10 +16,10 @@ int RSVPChangeHop::configure(Vector<String>& config, ErrorHandler* errh){
 }
 
 void RSVPChangeHop::push(int port, Packet* p){
-
-    RSVPHeader* header= (RSVPHeader*) p ->data();
+    const auto ip_header = (click_ip*) p->data();
+    const auto header {(RSVPHeader*) (p->data() + 4 * ip_header->ip_hl)};
     if(header->msg_type == RSVPHeader::Type::Path or header->msg_type == RSVPHeader::Type::Resv){
-
+        click_chatter("Changing Hop value to %s ", m_address_info.unparse().c_str());
         RSVPHop* hop = this->find_hop(p);
         hop->address = this->m_address_info;
         header->checksum = 0;
@@ -33,7 +33,8 @@ void RSVPChangeHop::push(int port, Packet* p){
 RSVPHop* RSVPChangeHop::find_hop(Packet* p){
 
     // Main object to iterate over our package objects
-    RSVPHeader* header = (RSVPHeader*) p->data();
+    const auto ip_header = (click_ip*) p->data();
+    const auto header {(RSVPHeader*) (p->data() + 4 * ip_header->ip_hl)};
     RSVPObject* object = (RSVPObject*) (header + 1 ) ; // Ptr to the RSVPObject package
     RSVPHop* hop {nullptr};
     while((const unsigned  char*)object < p->end_data() and hop == nullptr){

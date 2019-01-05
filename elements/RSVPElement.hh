@@ -57,6 +57,7 @@ struct SenderID
         // Make sure the 2 unused bytes are always 0 and that the RSVP object header isn't included in the key
         sender._ = 0;
         sender.src_port = ntohs(sender.src_port);
+
         return *(uint64_t*)((RSVPObject*)(&sender) + 1);
     }
 
@@ -79,7 +80,9 @@ struct SenderID
     }
 
     static inline SenderID from_rsvp_sendertemplate(RSVPSenderTemplate* send){
-        return from_key(to_key(*send));
+        auto temp  = to_key(*send);
+        auto result = from_key(temp);
+        return result;
     }
 
     static inline SenderID from_rsvp_filter_spec(RSVPFilterSpec spc) {
@@ -316,7 +319,7 @@ protected:
 
     struct PathState{
 
-        ~PathState(){
+        inline void free_heap(){
             delete refresh_timer;
             delete timeout_timer;
             delete path_call_back_data;
@@ -333,8 +336,8 @@ protected:
         //If timeout timer passes if this is true then the pathState timed out and should be deleted
         bool is_timeout = true;
 
-        float R;
-        float L;
+        uint32_t R;
+        uint32_t L;
 
         // Keeping the timer ptr's so we can free them from the heap
         Timer* refresh_timer{nullptr};
@@ -351,6 +354,10 @@ protected:
 
     // The headroom needed for an ether and ip header
     static constexpr unsigned int s_headroom {sizeof(click_ip) + 4 + sizeof(click_ether)};
+
+    //Timer parameters
+    static constexpr uint32_t R {10000};    // TODO set to 30000 (10000 for testing)
+    static constexpr uint8_t K {3};
 };
 
 CLICK_ENDDECLS

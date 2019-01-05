@@ -110,8 +110,7 @@ private:
     static constexpr float s_peak_rate {100000};
     static constexpr uint32_t s_min_unit {100};
     static constexpr uint32_t s_max_size {1500};
-    static constexpr uint32_t R {10000};    // TODO set to 30000 (10000 for testing)
-    static constexpr uint8_t K {3};
+
 };
 
 
