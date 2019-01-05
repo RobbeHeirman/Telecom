@@ -260,6 +260,7 @@ void RSVPHost::handle_resv_err(const unsigned char *const packet) {
                     err_cause << "unknown/invalid sub-code " << err_value;
                     break;
             }
+            break;
 
         case RSVPErrorSpec::RSVPSystemError:
             err_cause << "RSVP system error with value " << err_value;
