@@ -9,32 +9,29 @@
 //	[0]: packets sent to the LAN interface
 //	[1]: packets sent to the WAN interface
 
-require(library CompoundElements/RSVPSetTos.click)
 require(library CompoundElements/RSVPPacketScheduler.click)
+require(library CompoundElements/RSVPSetTos.click)
 
 elementclass Router {
 	$lan_address, $wan_address, $default_gw |
 
-	// Routing table
-    rt :: StaticIPLookup($lan_address/32 0, $wan_address/32 0, $lan_address:ipnet 1, $wan_address:ipnet 2,
-    			         0.0.0.0/0 $default_gw 2);
-
 	// Shared IP input path and routing table
 	ip :: Strip(14)
-		-> CheckIPHeader
-		-> ip_classifier::IPClassifier(ip proto 17, ip proto 46); // We expect either UDP = 17 or RSVP = 46 packets
+	    -> ip_class::IPClassifier(ip proto 46, ip proto 17)
+        ->rsvp_main::RSVPNode($wan_address, $lan_address)
+		-> ch::CheckIPHeader
+		-> rt :: StaticIPLookup(
+			$lan_address/32 0,
+			$wan_address/32 0,
+			$lan_address:ipnet 1,
+			$wan_address:ipnet 2,
+			0.0.0.0/0 $default_gw 2);
 
-    //Handling UDP messages
-    ip_classifier[0]
-        //Will set the DSCP val in the TOS byte to classify our packages between BE & QOS
-        ->set_tos::RSVPSetTos("RSVPNode", rsvp_handler)
-        ->rt;
-
-
-    //Handling RSVP messages
-    ip_classifier[1]
-        ->rsvp_handler::RSVPNode($wan_address, $lan_address)
-        -> rt;
+    ip_class[1]
+            -> RSVPSetTos(RSVPNode, rsvp_main)
+            -> RSVPPacketScheduler
+            ->CheckIPHeader
+            -> rt;
 
 	// ARP responses are copied to each ARPQuerier.
 	arpt :: Tee(2);
@@ -44,11 +41,10 @@ elementclass Router {
 		-> HostEtherFilter($lan_address)
 		-> lan_class :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800)
 		-> lan_arpr :: ARPResponder($lan_address)
-		-> lan_scheduler::RSVPPacketScheduler
 		-> [0]output;
 
 	lan_arpq :: ARPQuerier($lan_address)
-	    -> lan_scheduler;
+		-> [0]output;
 
 	lan_class[1]
 		-> arpt[0]
@@ -63,12 +59,10 @@ elementclass Router {
 		-> HostEtherFilter($wan_address)
 		-> wan_class :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800)
 		-> wan_arpr :: ARPResponder($wan_address)
-		-> wan_scheduler::RSVPPacketScheduler()
 		-> [1]output;
 
 	wan_arpq :: ARPQuerier($wan_address)
-	    -> wan_scheduler
-		//-> [1]output;
+		-> [1]output;
 
 	wan_class[1]
 		-> arpt[1]
@@ -83,8 +77,8 @@ elementclass Router {
 
 	// Forwarding path for LAN interface
 	rt[1]	-> DropBroadcasts
+	    -> RSVPChangeHop($lan_address)
 		-> lan_paint :: PaintTee(1)
-		-> lan_rsvp_classy::IPClassifier(ip proto 17, ip proto 46) //Still need to set hop in RSVP messages
 		-> lan_ipgw :: IPGWOptions($lan_address)
 		-> FixIPSrc($lan_address)
 		-> lan_ttl :: DecIPTTL
@@ -107,14 +101,10 @@ elementclass Router {
 		-> ICMPError($lan_address, unreachable, needfrag)
 		-> rt;
 
-    lan_rsvp_classy[1]
-            -> lan_hopper::RSVPChangeHop($lan_address)
-            -> lan_ipgw;
-
 	// Forwarding path for WAN interface
 	rt[2]	-> DropBroadcasts
+	    -> RSVPChangeHop($wan_address)
 		-> wan_paint :: PaintTee(2)
-		-> wan_rsvp_classy::IPClassifier(ip proto 17, ip proto 46)
 		-> wan_ipgw :: IPGWOptions($wan_address)
 		-> FixIPSrc($wan_address)
 		-> wan_ttl :: DecIPTTL
@@ -136,9 +126,5 @@ elementclass Router {
 	wan_frag[1]
 		-> ICMPError($wan_address, unreachable, needfrag)
 		-> rt;
-
-    wan_rsvp_classy[1]
-        -> wan_hopper::RSVPChangeHop($wan_address)
-        -> wan_ipgw;
 }
 
