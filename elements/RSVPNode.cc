@@ -273,7 +273,6 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
         // We loop over all flowDescriptors
         click_chatter("FF reserve style");
         for (auto i = 0; i < resv.flow_descriptor_list.size(); i++) {
-
             // Since this is FF style we look for the sender corresponding with the filterspec
             uint64_t address_key = SenderID::to_key(*(resv.flow_descriptor_list[i].filter_spec));
             if (m_path_state.find(address_key) != m_path_state.end()) {
@@ -288,12 +287,13 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         m_ff_resv_states[address_key] = HashTable<uint64_t, ReserveState>();
                     }
 
+                    ReserveState* rr;
                     // We don't have this reservation in our reservation map
                     if (!resv_ff_exists(address_key, session_key)) {
                         click_chatter("Creating new Reservation state..");
                         // We add a new resv state here
                         ReserveState r_state;
-
+                        rr = &r_state;
                         //Fill in the reserve state data
                         r_state.session = *resv.session;
                         r_state.prev_hop = state.prev_hop;
@@ -337,12 +337,21 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                                       String(r_state.R).c_str(),
                                       String(r_state.L).c_str());
 
+                        WritablePacket* re = generate_resv(SessionID::from_rsvp_session(&state.session),
+                                                           SenderID::from_rsvp_sendertemplate(&state.sender_template),
+                                                           rr->R,
+                                                           rr->tspec,
+                                                           true);
+                        ipencap(re, m_interfaces[port], state.prev_hop);
+                        output(port).push(re);
+
                     } else {
 
                         click_chatter("This is a Reserve refresh message...");
 
                         // We modify resv state here
                         ReserveState &r_state = m_ff_resv_states[address_key][session_key];
+                        rr = &m_ff_resv_states[address_key][session_key];
                         //Fill in the reserve state data
                         r_state.session = *resv.session;
                         r_state.prev_hop = state.prev_hop;
@@ -361,11 +370,18 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                                       String(r_state.next_hop.unparse()).c_str(),
                                       String(r_state.R).c_str(),
                                       String(r_state.L).c_str());
+                        WritablePacket* re = generate_resv(SessionID::from_rsvp_session(&state.session),
+                                                           SenderID::from_rsvp_sendertemplate(&state.sender_template),
+                                                           rr->R,
+                                                           rr->tspec,
+                                                           false);
+                        ipencap(re, m_interfaces[port], state.prev_hop);
+                        output(port).push(re);
 
                     }
                     //Signaling that the IPEncap with the correct src and dst addresses.
-                    ipencap(p, m_interfaces[port], state.prev_hop);
-                    output(port).push(p);
+
+
                 } else {
                     click_chatter("Found a NONE existing session in receiver message.");
                 }
@@ -394,6 +410,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
 
 
     }
+    p->kill();
 }
 
 bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
