@@ -371,7 +371,8 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                 }
 
             } else {
-                click_chatter("Found a filter spec without matching sender spec!");
+                click_chatter(IPAddress(resv.flow_descriptor_list[i].filter_spec->src_addr).unparse().c_str());
+                click_chatter("Found a filter spec without matching sender template!");
             }
 
         }
