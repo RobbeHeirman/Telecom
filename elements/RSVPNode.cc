@@ -150,10 +150,10 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
      if(!find_path_ptrs( (const unsigned char*) header, path)){
          p->kill();
          if(path.session == nullptr or path.sender.sender == nullptr or path.sender.tspec == nullptr){
-             click_chatter("???");
              SessionID ses_id{SessionID::from_rsvp_session(path.session)};
              SenderID sender_id{SenderID::from_rsvp_sendertemplate(path.sender.sender)};
              generate_path_err(ses_id, sender_id, *path.sender.tspec, path.error_code, path.error_value);
+             output(port).push(0);
              return;
          }
          else{
@@ -170,6 +170,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_sender{SenderID::to_key(*path.sender.sender)};
 
     click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str());
+    PathState* result = nullptr;
 
     if(m_path_state.find(byte_sender) == m_path_state.end()){
         m_path_state[byte_sender] = HashTable <uint64_t, PathState>();
@@ -219,10 +220,13 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
                 String(state.prev_hop.unparse()).c_str(),
                 String(state.R).c_str(),
                 String(state.L).c_str());
+
+        result = &m_path_state[byte_sender][byte_session];
     }
     else{
         click_chatter("This is a Path refresh message...");
         PathState& state = m_path_state[byte_sender][byte_session];
+        result = &m_path_state[byte_sender][byte_session];
 
         state.sender_template = *(path.sender.sender);
         state.session = *path.session;
@@ -241,10 +245,16 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
                       String(state.R).c_str(),
                       String(state.L).c_str());
     }
+    p->kill();
+    WritablePacket* pusher = this->generate_path(
+                            SessionID::from_rsvp_session(&result->session),
+                            SenderID::from_rsvp_sendertemplate(&result->sender_template)
+                            ,result->R, result->t_spec
+                            );
 
     // Tell the IPEncapModule we keep on routing to the receiver
-    ipencap(p, path.sender.sender->src_addr, path.session->dest_addr);
-    output(port).push(p);
+    ipencap(pusher, path.sender.sender->src_addr, path.session->dest_addr);
+    output(0).push(p);
 }
 
 void RSVPNode::handle_resv_message(Packet *p, int port) {
