@@ -6,7 +6,6 @@
 #define TELECOM_RSVPELEMENT_H
 
 #include <click/hashtable.hh>
-#include "../ip/ipencap.hh"
 #include <clicknet/ether.h>
 #include <click/element.hh>
 #include <click/vector.hh>
