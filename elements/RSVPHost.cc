@@ -122,6 +122,9 @@ void RSVPHost::handle_resv(const unsigned char *const packet) {
             ipencap(packet, m_address_info.in_addr(), resv.hop->address);
             output(0).push(packet);
         }
+
+        // Enable QoS for the session
+        session.enable_qos = true;
     };
 }
 
@@ -316,8 +319,8 @@ void RSVPHost::handle_resv_tear(const unsigned char *const packet) {
         if (check(sender_key != session.sender.to_key(),
                 "RSVPHost received RESV_TEAR message for a sender that is not registered to the session")) return;
 
-        // RESV_TEAR messages don't affect senders
-        check(true, "RSVPHost received RESV_TEAR message");
+        // Disable QoS for the session
+        session.enable_qos = false;
     };
 }
 
@@ -608,7 +611,9 @@ bool RSVPHost::resv_ff_exists(const uint64_t& sender_key, const uint64_t& sessio
     if (session_pair) {
 
         // Check whether the session's sender has the same key as the given one
-        return (session_pair->value.sender.to_key() == new_sender_key);
+        if (session_pair->value.sender.to_key() == new_sender_key) {
+            return session_pair->value.enable_qos;
+        }
     }
     return false;
 }

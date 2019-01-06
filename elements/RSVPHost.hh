@@ -81,7 +81,8 @@ private:
         SendData* send_data {nullptr};
 
         SenderID sender {};
-        bool is_sender {false};     // This is initialised as false; the sender hanlder will set it to true
+        bool is_sender {false};     // This is initialised as false; the sender handler will set it to true
+        bool enable_qos {false};
     };
     typedef HashMap<uint64_t, Session> SessionMap;
     SessionMap m_sessions;

@@ -11,7 +11,7 @@ CLICK_DECLS
 
 int RSVPClassifyService::configure(Vector<String>& config, ErrorHandler* errh){
 
-    // Local variable to hold the elements type and the arguments constructed from the config
+    // Local variable to hold the element's type, and arguments constructed from the config
     String type {};
     auto args {Args(config, this, errh)};
 
@@ -53,6 +53,7 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
         if(m_element->resv_ff_exists(src_key, session_key)){
             click_chatter("Packet classified as QoS (Port 1)");
             output(1).push(p);
+            return;
 
         }
 
