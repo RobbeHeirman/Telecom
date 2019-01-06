@@ -269,7 +269,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
     uint64_t session_key = SessionID::to_key(*resv.session);
 
     click_chatter("Receiving reserve message from Session %s: ", String(session_key).c_str());
-    if(resv.style->sharing == 0b01 && resv.style->s_selection == 0b010) { //TODO: maybe we need to map those styles in an enum aswell
+    if(resv.style->sharing == 0b01 && resv.style->s_selection == 0b010) {
         // We loop over all flowDescriptors
         click_chatter("FF reserve style");
         for (auto i = 0; i < resv.flow_descriptor_list.size(); i++) {
