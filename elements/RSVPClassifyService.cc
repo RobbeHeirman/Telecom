@@ -11,7 +11,7 @@ CLICK_DECLS
 
 int RSVPClassifyService::configure(Vector<String>& config, ErrorHandler* errh){
 
-    // Local variable to hold the elements type and the arguments constructed from the config
+    // Local variable to hold the element's type, and arguments constructed from the config
     String type {};
     auto args {Args(config, this, errh)};
 
