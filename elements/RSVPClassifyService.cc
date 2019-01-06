@@ -38,20 +38,21 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
 
     //at the moment we only support UDP
     if(ip_header->ip_p == IP_PROTO_UDP){
-
         //need udp header for src and dst port
         const click_udp* udp_header = p->udp_header();
-        uint16_t src_port = udp_header->uh_sport;
-        uint16_t dst_port = udp_header->uh_dport;
+        uint16_t src_port = ntohs(udp_header->uh_sport);
+        uint16_t dst_port = ntohs(udp_header->uh_dport);
 
-        uint32_t temp1 = ((uint32_t) 0 << 16) | src_port;
-        uint64_t src_key = ((uint64_t) src_addr.s_addr) << 32 | temp1;
+        SessionID s_id(dst_addr,dst_port,IP_PROTO_UDP);
+        uint64_t session_key = s_id.to_key();
 
-        temp1 = ((uint32_t) IP_PROTO_UDP << 16) | dst_port;
-        uint64_t session_key = ((uint64_t)dst_addr.s_addr << 32) | temp1;
+        SenderID send_id(src_addr, src_port);
+        uint64_t src_key = send_id.to_key();
 
+        click_chatter(IPAddress(dst_addr).unparse().c_str());
+        //click_chatter(String(dst_port).c_str());
         if(m_element->resv_ff_exists(src_key, session_key)){
-            //click_chatter("Packet classified as QoS (Port 1)");
+            click_chatter("Packet classified as QoS (Port 1)");
             output(1).push(p);
             return;
         }
