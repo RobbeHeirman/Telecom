@@ -12,7 +12,7 @@ elementclass RSVPPacketScheduler {
         ->[1]scheduler;
 
     scheduler
-        -> Unqueue
+        -> sched::Unqueue
         -> output;
 }
 
