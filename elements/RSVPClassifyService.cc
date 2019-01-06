@@ -55,9 +55,6 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
             output(1).push(p);
             return;
         }
-        else{
-            output(0).push(p); // TO Best effort out
-        }
 
     }
 
