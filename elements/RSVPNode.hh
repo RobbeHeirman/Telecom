@@ -84,8 +84,9 @@ private:
         RSVPFlowSpec flowSpec;
         RSVPFilterSpec filterSpec;
         RSVPResvConfirm conf;
-        float R;
-        float L;
+        RSVPSenderTSpec tspec;
+        uint32_t R;
+        uint32_t L;
 
         bool is_timeout = true;
         Timer* refresh_timer{nullptr};
