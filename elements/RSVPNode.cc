@@ -303,6 +303,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
                         r_state.R = this->calculate_refresh(resv.time_values->refresh);
                         r_state.L = this->calculate_L(resv.time_values->refresh);
+                        r_state.tspec = state.t_spec;
 
                         // Time values
                         r_state.R = this->calculate_refresh(RSVPElement::R);
@@ -350,6 +351,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
                         r_state.R = this->calculate_refresh(RSVPElement::R);
                         r_state.L = this->calculate_L(r_state.R);
+                        r_state.tspec = state.t_spec;
 
 
                         r_state.is_timeout = false;
@@ -413,7 +415,8 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
                 SenderID::from_rsvp_sendertemplate(&st.sender_template), st.t_spec, m_interfaces[0]);
 
         if(delete_state(sender_key, session_key,tear.hop->address)){
-            click_chatter("Deleting path state from %s", String(session_key).c_str());ipencap(wr, tear.sender_template->src_addr, tear.session->dest_addr);
+            click_chatter("Deleting state from %s", String(session_key).c_str());ipencap(wr, tear.sender_template->src_addr, tear.session->dest_addr);
+            delete_ff_rsv_state(sender_key, session_key);
             output(port).push(wr);
         }
         p->kill();
@@ -589,7 +592,6 @@ bool RSVPNode::delete_ff_rsv_state(const uint64_t& sender_key, const uint64_t& s
 
     if(this->m_ff_resv_states.find(sender_key) != this->m_ff_resv_states.end()) {
         if (this->m_ff_resv_states[sender_key].find(session_key) != this->m_ff_resv_states[session_key].end()) {
-            click_chatter(String("Erasing session: ", session_key).c_str());
             this->m_ff_resv_states[sender_key].erase(session_key);
 
             if(this->m_ff_resv_states[sender_key].empty()){
@@ -669,7 +671,7 @@ void RSVPNode::handle_reserve_time_out(Timer* timer, void* data){
 
 void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Timer* t){
 
-    click_chatter("Trying to fire a refresh message...");
+    click_chatter("Trying to fire a path refresh message for %s...",String(session_key).c_str());
     if(this->path_state_exists(sender_key, session_key)){
 
         //Sending a refresh path message
@@ -681,37 +683,49 @@ void RSVPNode::refresh_path_state(uint64_t sender_key, uint64_t session_key, Tim
                 state->t_spec
                 );
         click_chatter("Firing Path Refresh to %s: ", IPAddress(state->session.dest_addr).unparse().c_str());
+
         this->ipencap(p, m_interfaces[0], state->session.dest_addr);
         output(0).push(p);
 
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state->R);
-        click_chatter("=====================================================================================================");
+
     }
+    else{
+        click_chatter("PathState not here");
+    }
+    click_chatter("=====================================================================================================");
+
 }
 
 void RSVPNode::time_out_path_state(uint64_t sender_key, uint64_t session_key, Timer* t){
-    click_chatter("checking a timeout of %s", String(session_key).c_str());
+    click_chatter("checking a path timeout of %s", String(session_key).c_str());
     // we check if this state is still in our table
-    if(this->path_state_exists(sender_key, session_key)){
-        PathState& state = m_path_state[sender_key][session_key];
+    if(this->path_state_exists(sender_key, session_key)) {
+        PathState &state = m_path_state[sender_key][session_key];
 
         // Checks if this state is up to timeout, this means it did not receive a path_message yet
-        if(state.is_timeout){
-            click_chatter("PathState of Session %s timed out",String(session_key).c_str());
-            WritablePacket* p = generate_path_tear(SessionID::from_key(session_key), SenderID::from_key(sender_key),state.t_spec, m_interfaces[0]);
+        if (state.is_timeout) {
+            click_chatter("PathState of Session %s timed out", String(session_key).c_str());
+            WritablePacket *p = generate_path_tear(SessionID::from_key(session_key), SenderID::from_key(sender_key),
+                                                   state.t_spec, m_interfaces[0]);
             this->ipencap(p, m_interfaces[0], state.sender_template.src_addr);
             output(0).push(p);
 
             this->delete_state(sender_key, session_key);
-        }
-        else{
+            this->delete_ff_rsv_state(sender_key, session_key);
+
+        } else {
             click_chatter("refreshed in time");
             // It was refreshed before timeout next timeout round the state will be destroyed.
             state.is_timeout = true;
             t->reschedule_after_msec(state.L);
         }
     }
+    else{
+        click_chatter("PathState already teared down.");
+    }
+
     click_chatter("========================================================================================================");
 }
 
@@ -736,12 +750,16 @@ void RSVPNode::refresh_reserve_state(uint64_t sender_key, uint64_t session_key, 
         output(0).push(p);
         //And now we need to reschedule the timer, based on local R value for this session
         t->reschedule_after_msec(state.R);
-        click_chatter("=====================================================================================================");
+
     }
+    else{
+        click_chatter("ReserveState not here");
+    }
+    click_chatter("=====================================================================================================");
 }
 
 void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key, Timer* t){
-
+    click_chatter("checking a reserve timeout of %s", String(session_key).c_str());
     // we check if this state is still in our table
     if(this->resv_ff_exists(sender_key, session_key)){
 
@@ -749,15 +767,23 @@ void RSVPNode::time_out_reserve_state(uint64_t sender_key, uint64_t session_key,
 
         // Checks if this state is up to timeout, this means it did not receive a path_message yet
         if(state.is_timeout){
+            click_chatter("Reserve of Session %s timed out", String(session_key).c_str());
+            this->generate_resv_tear(SessionID::from_key(session_key),SenderID::from_key(session_key), state.tspec,m_interfaces[0]);
             this->delete_ff_rsv_state(sender_key, session_key);
+            this->delete_state(sender_key, session_key);
+
         }
         else{
+            click_chatter("refreshed in time");
             // It was refreshed before timeout next timeout round the state will be destroyed.
             state.is_timeout = true;
             t->reschedule_after_msec(state.L);
         }
     }
-
+    else{
+        click_chatter("ReserveState not here");
+    }
+    click_chatter("=====================================================================================================");
 }
 
 CLICK_ENDDECLS

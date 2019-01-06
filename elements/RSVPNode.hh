@@ -84,6 +84,7 @@ private:
         RSVPFlowSpec flowSpec;
         RSVPFilterSpec filterSpec;
         RSVPResvConfirm conf;
+        RSVPSenderTSpec tspec;
         float R;
         float L;
 
