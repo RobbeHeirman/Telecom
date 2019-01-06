@@ -155,6 +155,13 @@ public:
 
 protected:
     /**
+     * A function that checks whether the packet, in particular the message and object headers, is well-formed.
+     * @param packet A pointer to an IP encapsulated packet
+     * @return whether or not the packet is well-formed
+     */
+    static bool validate_message(const Packet* packet);
+
+    /**
      * Helper function that will help us find package ptrs.
      * @param: Packet is a ptr to package where we want to extract the path ptrs.
      */

@@ -31,10 +31,8 @@ void RSVPHost::push(int, Packet *const packet) {
     const auto ip_header = (click_ip*) packet->data();
     const auto header {(RSVPHeader*) (packet->data() + 4 * ip_header->ip_hl)};
 
-    // Make sure the header is valid
-    if (check(header->version != RSVPVersion, "RSVPHost received packet with invalid version")) return;
-    if (check(click_in_cksum((unsigned char*) header, ntohs(header->length)),
-            "RSVPHost received packet with invalid checksum")) return;
+    // Make sure the packet is a valid RSVP message with an IP header
+    if (check(not validate_message(packet), "RSVPHost received an ill-formed RSVP message")) return;
 
     // React based on the message type in the header
     switch (header->msg_type) {
@@ -56,6 +54,7 @@ void RSVPHost::push(int, Packet *const packet) {
             ErrorHandler::default_handler()->error("RSVPHost received packet with an invalid message type");
     }
 
+    // The packet isn't needed anymore, delete it
     packet->kill();
 }
 
