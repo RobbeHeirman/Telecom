@@ -9,6 +9,6 @@ elementclass RSVPSetTos{ $type, $RSVPElement |
         -> output;
 
     classy[1]
-        ->SetIPDSCP(1) //Diffserv classifying is done with underling aggreement, we will use 1 as QOS
+        -> SetIPDSCP(1) //Diffserv classifying is done with underling aggreement, we will use 1 as QOS
         -> output;
 }
