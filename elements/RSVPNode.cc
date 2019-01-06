@@ -170,7 +170,6 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_sender{SenderID::to_key(*path.sender.sender)};
 
     SessionID tst = SessionID::from_key(byte_session);
-    click_chatter(String(tst.destination_port).c_str());
 
     click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str());
     PathState* result = nullptr;
@@ -302,6 +301,7 @@ void RSVPNode::handle_resv_message(Packet *p, int port) {
                         r_state.prev_hop = state.prev_hop;
                         r_state.next_hop = resv.hop->address;
                         r_state.flowSpec = *resv.flow_descriptor_list[i].flow_spec;
+                        r_state.conf = *resv.resv_confirm;
                         r_state.filterSpec = *resv.flow_descriptor_list[i].filter_spec;
                         r_state.R = this->calculate_refresh(resv.time_values->refresh);
                         r_state.L = this->calculate_L(resv.time_values->refresh);
@@ -535,7 +535,10 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
         auto sender_key{SenderID::to_key(*rsv_conf.flow_descriptor_list[i].filter_spec)};
         if(resv_ff_exists(sender_key, session_key)){
             ReserveState& state = m_ff_resv_states[sender_key][session_key];
-            ipencap(p, m_interfaces[port], state.next_hop);
+            p->kill();
+            PathState p_state = m_path_state[sender_key][session_key];
+            WritablePacket* res = this->generate_resv_conf(SessionID::from_rsvp_session(&state.session),SenderID::from_rsvp_filter_spec(state.filterSpec), p_state.t_spec, state.conf);
+            ipencap(res, m_interfaces[port], state.next_hop);
             click_chatter("Forwarding confirmation");
             click_chatter("Values: destination = %s", String(state.next_hop.unparse()).c_str());
             output(port).push(p);

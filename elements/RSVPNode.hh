@@ -83,6 +83,7 @@ private:
         IPAddress prev_hop;
         RSVPFlowSpec flowSpec;
         RSVPFilterSpec filterSpec;
+        RSVPResvConfirm conf;
         float R;
         float L;
 
