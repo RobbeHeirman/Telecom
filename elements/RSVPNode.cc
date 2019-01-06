@@ -169,6 +169,9 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_session{SessionID::to_key(*path.session)};
     uint64_t byte_sender{SenderID::to_key(*path.sender.sender)};
 
+    SessionID tst = SessionID::from_key(byte_session);
+    click_chatter(String(tst.destination_port).c_str());
+
     click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str());
     PathState* result = nullptr;
 
