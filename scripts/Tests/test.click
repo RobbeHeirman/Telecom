@@ -1,5 +1,5 @@
 
-require(library ../CompoundElements/RSVPSetTos.click)
+require(library ../routers/CompoundElements/RSVPSetTos.click)
 
 host1 :: RSVPHost(192.168.10.1);
 host2 :: RSVPHost(192.168.11.1);

@@ -390,6 +390,8 @@ int RSVPHost::session(const String& config, Element *const element, void *const,
     // Create a new session and add it to m_sessions
     Session session {};
     session.id = session_id;
+    session.send_data = nullptr;
+    session.refresh_timer = nullptr;
     host->m_sessions.insert(id.to_key(), session);
     host->m_session_ids.insert(session_id, id.to_key());
 

@@ -5,11 +5,11 @@ elementclass RSVPPacketScheduler {
 
     ip_classy[0]
         -> best_effort_q::SimpleQueue
-        -> [0]scheduler::SimplePrioSched;
+        -> [1]scheduler::SimplePrioSched;
 
     ip_classy[1]
         ->qos_q::SimpleQueue
-        ->[1]scheduler;
+        ->[0]scheduler;
 
     scheduler
         -> sched::Unqueue
