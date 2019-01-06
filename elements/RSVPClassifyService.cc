@@ -51,19 +51,21 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
         uint64_t session_key = ((uint64_t)dst_addr.s_addr << 32) | temp1;
 
         if(m_element->resv_ff_exists(src_key, session_key)){
-            click_chatter("Packet classified as QoS (Port 1)");
+            //click_chatter("Packet classified as QoS (Port 1)");
             output(1).push(p);
             return;
-
+        }
+        else{
+            output(0).push(p); // TO Best effort out
         }
 
     }
 
     else{
-        click_chatter("Tried to classify QoS on a non UDP package");
+        //click_chatter("Tried to classify QoS on a non UDP package");
     }
 
-    click_chatter("Packet classified as Best Effort");
+    //click_chatter("Packet classified as Best Effort");
     output(0).push(p);
 }
 

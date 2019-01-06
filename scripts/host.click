@@ -2,12 +2,20 @@
 //
 // Packets for the network are put on output 0
 // Packets for the host are put on output 1
+
+require(library ../CompoundElements/RSVPSetTos.click)
+require(library ../CompoundElements/RSVPPacketScheduler.click)
+
 elementclass Host {
 	$address, $gateway |
 
+	rsvpHost :: RSVPHost($address);
+	rsvpTos :: RSVPSetTos(RSVPHost, rsvpHost);
+
 	// Shared IP input path
 	ip :: Strip(14)
-		-> rsvp_out :: CheckIPHeader
+		-> check_ip :: CheckIPHeader
+		-> rsvpTos
 		-> rt :: StaticIPLookup(
 			$address:ip/32 0,
 			$address:ipnet 1,
@@ -42,8 +50,9 @@ elementclass Host {
 
 	in_cl[2]
 		-> Strip(14)
-		-> rsvpHost :: RSVPHost($address)
-		-> rsvp_out;
+		-> CheckIPHeader
+		-> rsvpHost
+		-> check_ip;
 
 	in_cl[3]
 		-> ip;

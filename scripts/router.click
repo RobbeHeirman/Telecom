@@ -27,7 +27,7 @@ elementclass Router {
     //Handling UDP messages
     ip_classifier[0]
         //Will set the DSCP val in the TOS byte to classify our packages between BE & QOS
-        ->set_tos::RSVPSetTos(rsvp_handler)
+        ->set_tos::RSVPSetTos("RSVPNode", rsvp_handler)
         ->rt;
 
 
@@ -48,8 +48,7 @@ elementclass Router {
 		-> [0]output;
 
 	lan_arpq :: ARPQuerier($lan_address)
-	    -> lan_scheduler
-		-> [0]output;
+	    -> lan_scheduler;
 
 	lan_class[1]
 		-> arpt[0]
@@ -64,12 +63,12 @@ elementclass Router {
 		-> HostEtherFilter($wan_address)
 		-> wan_class :: Classifier(12/0806 20/0001, 12/0806 20/0002, 12/0800)
 		-> wan_arpr :: ARPResponder($wan_address)
-		-> wan_scheduler::RSVPPacketScheduler
+		-> wan_scheduler::RSVPPacketScheduler()
 		-> [1]output;
 
 	wan_arpq :: ARPQuerier($wan_address)
 	    -> wan_scheduler
-		-> [1]output;
+		//-> [1]output;
 
 	wan_class[1]
 		-> arpt[1]
