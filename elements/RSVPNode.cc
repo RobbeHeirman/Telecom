@@ -169,8 +169,6 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
     uint64_t byte_session{SessionID::to_key(*path.session)};
     uint64_t byte_sender{SenderID::to_key(*path.sender.sender)};
 
-    SessionID tst = SessionID::from_key(byte_session);
-
     click_chatter("Receiving path message from Session %s: ", String(byte_session).c_str());
     PathState* result = nullptr;
 
@@ -408,18 +406,22 @@ bool RSVPNode::handle_path_tear_message(Packet *p, int port) {
     uint64_t session_key = SessionID::to_key(*tear.session);
     click_chatter("Receiving Path Tear message from %s", String(session_key).c_str());
 
-    if(delete_state(sender_key, session_key, tear.hop->address)){
-        delete_ff_rsv_state(sender_key, session_key);
-        ipencap(p, tear.sender_template->src_addr, tear.session->dest_addr);
-        output(port).push(p);
-        return true;
-    }
+    if(path_state_exists(sender_key, session_key)){
+        PathState st = m_path_state[sender_key][session_key];
 
-    else{
-        p->kill(); // We did not find the session so the tear message is discarded.
-        return false; // Nothing bad happend
-    }
+        WritablePacket* wr = generate_path_tear(SessionID::from_rsvp_session(&st.session),
+                SenderID::from_rsvp_sendertemplate(&st.sender_template), st.t_spec, m_interfaces[0]);
 
+        if(delete_state(sender_key, session_key,tear.hop->address)){
+            click_chatter("Deleting path state from %s", String(session_key).c_str());ipencap(wr, tear.sender_template->src_addr, tear.session->dest_addr);
+            output(port).push(wr);
+        }
+        p->kill();
+
+            return true;
+        }
+    p->kill();
+    return false;
 }
 
 bool RSVPNode::handle_resv_tear_message(Packet* p, int port){
@@ -550,9 +552,9 @@ bool RSVPNode::handle_confirmation_message(Packet* p, int port){
 bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_key, const in_addr& prev_hop, bool is_path){
 
     if(this->m_path_state.find(sender_key) != this->m_path_state.end()) {
-        if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[session_key].end()) {
+        if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[sender_key].end()) {
             if (prev_hop == (m_path_state[sender_key][session_key]).prev_hop.in_addr() or !is_path) { // if the hop is different no effect
-                click_chatter(String("Erasing session: ", session_key).c_str());
+                click_chatter("Erasing session %s: ", String(session_key).c_str());
                 this->m_path_state[sender_key].erase(session_key);
 
                 if(this->m_path_state[sender_key].empty()){
@@ -569,8 +571,8 @@ bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_
 bool RSVPNode::delete_state(const uint64_t& sender_key, const uint64_t& session_key){
 
     if(this->m_path_state.find(sender_key) != this->m_path_state.end()) {
-        if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[session_key].end()) {
-            click_chatter(String("Erasing session: ", session_key).c_str());
+        if (this->m_path_state[sender_key].find(session_key) != this->m_path_state[sender_key].end()) {
+            click_chatter("Erasing session: %s", String(session_key).c_str());
             this->m_path_state[sender_key].erase(session_key);
 
             if(this->m_path_state[sender_key].empty()){
