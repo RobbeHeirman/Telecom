@@ -254,7 +254,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
     // Tell the IPEncapModule we keep on routing to the receiver
     ipencap(pusher, path.sender.sender->src_addr, path.session->dest_addr);
-    output(0).push(p);
+    output(0).push(pusher);
 }
 
 void RSVPNode::handle_resv_message(Packet *p, int port) {
