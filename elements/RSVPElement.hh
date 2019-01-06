@@ -154,6 +154,8 @@ public:
 
     virtual bool resv_ff_exists(const uint64_t&, const uint64_t&) {return false;}
 
+    virtual int state_size(){return 0;}
+
 protected:
     /**
      * A function that checks whether the packet, in particular the message and object headers, is well-formed.

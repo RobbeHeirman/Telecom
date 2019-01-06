@@ -53,6 +53,8 @@ public:
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
     bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key) override;
 
+    int state_size(){return m_ff_resv_states.size();}
+
 private:
 
     struct ReserveCallbackData {
@@ -60,6 +62,8 @@ private:
 
         uint64_t sender_key;
         uint64_t session_key;
+
+
     };
 
 
