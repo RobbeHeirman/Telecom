@@ -237,7 +237,7 @@ void RSVPNode::handle_path_message(Packet *p, int port) {
 
 
         state.R = this->calculate_refresh(RSVPElement::R);
-        state.L = this->calculate_L(state.R);
+        state.L = this->calculate_L(path.time_values->refresh);
         path.time_values->refresh = state.R;
         state.is_timeout = false;
         click_chatter("Values = Previous Hop: %s, Refresh Timer: %s ms, Time to live: %s ms",
