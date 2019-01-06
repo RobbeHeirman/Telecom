@@ -13,7 +13,7 @@ bool RSVPElement::validate_message(const Packet *const packet) {
     const auto ip {(click_ip*) packet->data()};
     if (check(ip->ip_v != 4, "IP header has incorrect version (!= 4)")) return false;
     if (check(ip->ip_hl < 5, "IP header has impossible header length (< 5)")) return false;
-    if (check(ntohs(ip->ip_len) != packet->length(), "IP header has incorrect total length value")) return false;
+    if (check(packet->length() != ntohs(ip->ip_len), "IP header has incorrect total length value")) return false;
     if (check(ip->ip_p != IP_PROTO_RSVP, "IP header has incorrect protocol (!= RSVP)")) return false;
     if (check(click_in_cksum((unsigned char*) ip, 4 * ip->ip_hl), "IP header has incorrect checksum")) return false;
 
@@ -23,6 +23,8 @@ bool RSVPElement::validate_message(const Packet *const packet) {
     if (check(rsvp->msg_type > 7, "RSVP header has incorrect message type (> 7)")) return false;
     if (check(rsvp->send_ttl < ip->ip_ttl, "RSVP header has impossible TTL (< IP TTL)")) return false;
     if (check(ntohs(rsvp->length) % 4, "RSVP header has incorrect length value (% 4)")) return false;
+    if (check(ntohs(rsvp->length) != ntohs(ip->ip_len) - 4 * ip->ip_hl, "RSVP header has incorrect length value"))
+        return false;
     if (check(click_in_cksum((unsigned char*) rsvp, ntohs(rsvp->length)), "RSVP header has incorrect checksum"))
         return false;
 

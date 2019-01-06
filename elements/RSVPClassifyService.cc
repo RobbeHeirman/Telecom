@@ -11,13 +11,18 @@ CLICK_DECLS
 
 int RSVPClassifyService::configure(Vector<String>& config, ErrorHandler* errh){
 
-    int result = Args(config, this, errh).read("RSVPNode", ElementCastArg("RSVPNode"), m_node).complete();
+    // Local variable to hold the elements type and the arguments constructed from the config
+    String type {};
+    auto args {Args(config, this, errh)};
 
-    if(result < 0){
-        return result;
-    }
+    // First get the element's type, and then get the element and cast it to the type
+    args.read_mp("TYPE", type);
+    args.execute();
+    args.read_mp("ELEM", ElementCastArg(type.c_str()), m_element);
 
-    return 0;
+    // Check whether the parse failed
+    const auto result {args.complete()};
+    return (result < 0)? result : 0;
 
 }
 
@@ -45,7 +50,7 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
         temp1 = ((uint32_t) IP_PROTO_UDP << 16) | dst_port;
         uint64_t session_key = ((uint64_t)dst_addr.s_addr << 32) | temp1;
 
-        if(m_node->resv_ff_exists(src_key, session_key)){
+        if(m_element->resv_ff_exists(src_key, session_key)){
             click_chatter("Packet classified as QoS (Port 1)");
             output(1).push(p);
 

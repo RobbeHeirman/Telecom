@@ -587,6 +587,32 @@ void RSVPHost::add_handlers() {
     add_write_handler("release", release, 0);
 }
 
+bool RSVPHost::resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key) {
+    
+    // The keys from ClassifyService are structured in a different endianness
+    // Session: PORT (2) | PROTO (1) | PADDING (1) | ADDRESS (4)
+    const auto dst_addr {*(((in_addr*)&session_key) + 1)};
+    const auto dst_port {ntohs(*(uint16_t*)&session_key)};
+    const auto proto {*(((uint8_t*)&session_key) + 2)};
+
+    // Sender: PORT (2) | PADDING (2) | ADDRESS (4)
+    const auto src_addr {*(((in_addr*)&sender_key) + 1)};
+    const auto src_port {ntohs(*(uint16_t*)&sender_key)};
+
+    // Create new session and sender keys to compare
+    const auto new_session_key {(SessionID {dst_addr, dst_port, proto}).to_key()};
+    const auto new_sender_key {(SenderID {src_addr, src_port}).to_key()};
+    
+    // Check whether there exists a session with the ID
+    const auto session_pair {m_sessions.find_pair(new_session_key)};
+    if (session_pair) {
+
+        // Check whether the session's sender has the same key as the given one
+        return (session_pair->value.sender.to_key() == new_sender_key);
+    }
+    return false;
+}
+
 void RSVPHost::push_path(Timer *const timer, void *const user_data) {
 
     // Check whether user_data contains valid data

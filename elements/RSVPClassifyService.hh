@@ -5,7 +5,7 @@
 #ifndef TELECOM_RSVPCLASSIFYSERVICE_HH
 #define TELECOM_RSVPCLASSIFYSERVICE_HH
 
-#include "RSVPNode.hh"
+#include "RSVPElement.hh"
 
 CLICK_DECLS
 
@@ -23,7 +23,7 @@ public:
     void push(int port, Packet* p);
 
 private:
-    RSVPNode* m_node;
+    RSVPElement* m_element;
 
 };
 

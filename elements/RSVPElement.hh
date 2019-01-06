@@ -6,7 +6,6 @@
 #define TELECOM_RSVPELEMENT_H
 
 #include <click/hashtable.hh>
-#include "../ip/ipencap.hh"
 #include <clicknet/ether.h>
 #include <click/element.hh>
 #include <click/vector.hh>
@@ -152,6 +151,8 @@ public:
     const char* class_name() const {return "RSVPElement";}
     const char* port_count() const {return PORTS_1_1;} // Takes a rsvp modes and handles accordingly and outputs again 1/1
     const char* processing() const {return PUSH;}
+
+    virtual bool resv_ff_exists(const uint64_t&, const uint64_t&) {return false;}
 
 protected:
     /**
@@ -309,7 +310,6 @@ protected:
      */
     //uint64_t session_to_key(RSVPSession* session);
     //uint64_t sender_template_to_key(RSVPSenderTemplate* sender_template);
-
 
     struct PathCallbackData {
         RSVPNode* me;

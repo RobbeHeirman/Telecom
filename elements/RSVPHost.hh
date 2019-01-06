@@ -52,6 +52,9 @@ public:
     static int release(const String& config, Element* element, void*, ErrorHandler* errh);
     void add_handlers();
 
+    // Overridden RSVPElement function to use RSVPClassifyService
+    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key) override;
+
 private:
     // Timer callback data
     struct SendData

@@ -51,7 +51,7 @@ public:
 
     // Checking states
     bool path_state_exists(const uint64_t& sender_key, const uint64_t& session_key);
-    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key);
+    bool resv_ff_exists(const uint64_t& sender_key, const uint64_t& session_key) override;
 
 private:
 
