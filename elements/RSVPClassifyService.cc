@@ -52,7 +52,7 @@ void RSVPClassifyService::push(__attribute__((unused)) int port, Packet* p){
         //click_chatter(IPAddress(dst_addr).unparse().c_str());
         //click_chatter(String(dst_port).c_str());
         if(m_element->resv_ff_exists(src_key, session_key)){
-            //click_chatter("Packet classified as QoS (Port 1)");
+            click_chatter("Packet classified as QoS (Port 1)");
             output(1).push(p);
             return;
         }
